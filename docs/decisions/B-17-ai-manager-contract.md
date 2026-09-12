@@ -1,15 +1,20 @@
-# B-17 AI上司 Prompt / Skill 契約
+# B-17 AI上司 判断原則契約
 
-Status: Accepted
+Status: Accepted v0.2
 Decision ID: B-17
 
 ## 結論
 
 AI上司はCOMES Coreとは分離した**判断レイヤー**として扱う。
 
-個人検証版ではChatGPTを利用し、Decision Packを入力として翌日のマネジメント判断を生成する。
+B-17は今後、AI上司の**判断原則**を定義する文書とする。
 
-公開版では同じ契約を `AI Analysis Adapter` へ移し、LLM APIで実行できるようにする。
+出力契約・個人MVPの実行フロー・AI/COMES責任分界は、より新しい以下を正本とする。
+
+- B-24 AI Analysis Result Schema
+- B-25 AI責任分界
+
+B-17旧版にあった自然文固定出力と `Decision Pack → Google Drive → ChatGPT Scheduled Task` の実行契約は廃止する。
 
 ---
 
@@ -74,13 +79,12 @@ AI上司は以下を行う。
 Decision Packにない情報を事実として断定しない。
 
 例:
-
 - OK: `本人が負荷が高いと発言している`
 - NG: `モチベーションが落ちている`
 
 ### 7. 情報不足時は断定しない
 
-不足情報は `確認すべきこと` として出す。
+不足情報は確認対象として扱う。
 
 ### 8. マネージャーの仕事を増やさない
 
@@ -97,7 +101,6 @@ Decision Packにない情報を事実として断定しない。
 入力はDecision Pack v1を正本とする。
 
 最低限参照する項目:
-
 - `date`
 - `manager_id`
 - `source_status`
@@ -109,93 +112,49 @@ Decision Packにない情報を事実として断定しない。
 - `systemization_candidates`
 - `management_questions`
 
-ChatGPT個人検証版ではMarkdown表示版を読んでもよいが、意味上の正本はJSON Schemaに従う。
+意味上の正本は構造化JSONとする。
 
 ---
 
 ## 出力契約
 
-出力順を固定する。
+AI上司の出力契約はB-24を正本とする。
 
-```text
-【明日の最優先】
-1.
-2.
-3.
-
-【手放す仕事】
-- 対象
-- 理由
-- 推奨委譲レベル
-
-【本人が持つ仕事】
-- 対象
-- 理由
-
-【要フォロー】
-- 対象者
-- 観測事実
-- 推奨アクション
-
-【褒めるタイミング】
-- 対象者
-- 褒めるプロセス
-- 伝え方
-
-【ボトルネック】
-- 対象
-- 停止理由
-- 次アクション
-
-【仕組み化候補】
-- 対象業務
-- 仕組み化案
-
-【1on1で聞くこと】
-- 質問
-
-【情報不足・確認事項】
-- 不足情報
-```
+- 固定JSON Schemaで返す
+- `management_focus_type` / `management_focus_summary` を返す
+- `actions[]` を返す
+- 各actionは必須の `source_refs` を持つ
+- COMESはSchema validationを行い、自然言語を再解釈しない
 
 ---
 
-## 出力制約
+## 個人MVPフロー
 
-- 最優先は原則3件まで
-- 人事評価を自動確定しない
-- 性格診断をしない
-- モチベーションを数値化しない
-- 根拠のない能力評価をしない
-- Decision Packにない事実を補完しない
-- `source_missing` を0として扱わない
-- 高リスク案件は安易に完全委譲しない
-- 介入不要な場合は「介入不要」と明示してよい
-
----
-
-## 個人検証版
+個人MVPの実行フローはB-25を正本とする。
 
 ```text
 Decision Pack
-→ Google Drive
-→ ChatGPT Scheduled Task / 手動呼び出し
-→ AI上司出力
+→ COMESでAI用プロンプト生成
+→ 外部AIへコピーして投入
+→ B-24準拠JSONを取得
+→ COMESへ貼り付け
+→ Schema validation
+→ AI提案表示
+→ 人間が採用 / 保留 / 見送り
+→ 採用分をタスク化
 ```
 
 LLM APIは利用しない。
 
-ChatGPT側の実行環境がScheduled Taskに対応しない場合でも、契約自体は変更せず手動実行へ切り替える。
-
 ---
 
-## 公開版
+## 将来の公開版
 
 ```text
 Decision Pack JSON
 → AI Analysis Adapter
 → LLM Provider
-→ Structured Result
+→ B-24準拠JSON
 → COMES UI
 ```
 
@@ -203,12 +162,26 @@ AIプロバイダ固有のPrompt/SDKをCOMES Coreへ持ち込まない。
 
 ---
 
+## 出力制約
+
+- 人事評価を自動確定しない
+- 性格診断をしない
+- モチベーションを数値化しない
+- 根拠のない能力評価をしない
+- Decision Packにない事実を補完しない
+- `source_missing` を0として扱わない
+- 高リスク案件は安易に完全委譲しない
+- 介入不要な場合は介入不要と判断してよい
+
+---
+
 ## Acceptance
 
+- B-17は判断原則に責務を限定する
+- 出力契約はB-24を参照する
+- 個人MVPフローと責任分界はB-25を参照する
 - AI上司とCOMES Coreの責務が分離されている
 - 最終判断は人間に残る
-- 判断原則が固定されている
-- 出力形式が固定されている
 - 事実と推測を区別する
 - 情報不足を断定しない
-- 個人検証版からAPI版へ契約を維持したまま移行できる
+- 個人検証版からAPI版へ責任境界を維持したまま移行できる

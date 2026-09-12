@@ -1,6 +1,6 @@
 # B-31 UI / AI契約 整合性解消
 
-Status: Accepted / partial pending
+Status: Accepted
 Decision ID: B-31
 
 ## 1. 目的
@@ -87,15 +87,58 @@ HOMEのスケジュールは当日分を基本表示する。
 
 未来予定には必ず日付を付け、当日予定と混同させない。
 
-## 9. 未解決: Evidence Ref / source_refs 契約
+## 9. Evidence Ref / source_refs 契約
 
-B-12 Decision Packの `evidence_refs.source_type` とB-24 AI Analysis Resultの `source_refs.source_type` は現在、意味レベルが一致していない。
+B-12 Decision PackとB-24 AI Analysis Resultの根拠参照は、同じ意味契約に統一する。
 
-B-12は取得元寄りの値（例: `crm`, `manual`）を許容する一方、B-24は情報種類寄りの値（例: `work_item`, `daily_work_log`, `bottleneck`）を要求し、システム名を禁止している。
+正式な責務:
 
-この変換契約はまだ確定していないため、本Decisionでは解決扱いにしない。
+- `source_type` = 根拠が**何の情報か**
+- `source_system` = 根拠が**どのシステム・入力元から来たか**
+- `source_id` = `source_system` 内で追跡可能な識別子
+- `label` = 人間向けの短い表示名
 
-実装前に、B-12からB-24へ根拠参照をどう受け渡すかを別途確定する。
+例:
+
+```json
+{
+  "source_type": "work_item",
+  "source_system": "crm",
+  "source_id": "case_123",
+  "label": "A案件"
+}
+```
+
+`source_type` の基本値:
+- `kpi_result`
+- `work_item`
+- `work_event`
+- `daily_work_log`
+- `one_on_one`
+- `manager_observation`
+- `bottleneck`
+- `delegation_candidate`
+- `decision_pack_note`
+
+`source_system` は会社ごとのAdapter拡張を許容するため固定enumにはしない。
+
+例:
+- `crm`
+- `drive`
+- `comes`
+- `manual`
+- `google_calendar`
+- `outlook`
+
+原則:
+- `crm` / `drive` 等を `source_type` に入れない。
+- `work_item` / `kpi_result` 等を `source_system` に入れない。
+- AIが同じ根拠を引用する場合は、Decision Packから `source_type / source_system / source_id / label` をそのまま保持する。
+- AIが根拠の出所を推測で変更しない。
+
+B-12はAccepted v1.1、B-24はAccepted v0.2としてこの契約へ更新済み。
+
+これにより、B-12からB-24への根拠参照変換ルールは不要となり、意味を保ったまま受け渡せる。
 
 ## 10. 優先順位
 
@@ -116,4 +159,6 @@ B-21の旧Home下段よりB-26 / B-28 / B-31を優先する。
 - チームKPIとorganization KPIの関係が明文化された
 - 影響度ソートがMVPから削除された
 - 当日予定0件時の未来予定1件表示が明文化された
-- Evidence Ref / source_refs 契約だけを未解決として残した
+- `source_type` と `source_system` の責務が分離された
+- B-12 / B-24間のEvidence Ref契約が一致した
+- 横断確認で見つかったBlocking矛盾が解消された

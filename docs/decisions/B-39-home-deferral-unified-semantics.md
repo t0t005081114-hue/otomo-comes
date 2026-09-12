@@ -1,6 +1,6 @@
 # B-39 HOME「保留」の全カード共通契約
 
-Status: Accepted
+Status: Accepted v1.1
 Decision ID: B-39
 
 ## 結論
@@ -71,6 +71,7 @@ HOME保留は元ドメインと分離した共通の日次defer状態として�
 - `id` uuid PK
 - `organization_id` uuid FK
 - `manager_person_id` uuid FK -> people.id
+- `subject_person_id` uuid nullable FK -> people.id
 - `home_card_type` enum(self_action, delegation, praise, bottleneck)
 - `source_type` text
 - `source_system` text
@@ -82,8 +83,12 @@ HOME保留は元ドメインと分離した共通の日次defer状態として�
 Unique候補:
 
 ```text
-(organization_id, manager_person_id, home_card_type, source_type, source_system, source_id, defer_date)
+(organization_id, manager_person_id, home_card_type, subject_person_id, source_type, source_system, source_id, defer_date)
 ```
+
+`subject_person_id` は人物対象が明確な候補で設定する。
+
+同じEvidence Refが複数人物へ関係する場合でも、一人の保留操作で別人物の候補まで隠さない。
 
 元データがCOMES内部レコードの場合も、HOME表示側の安定した参照キーへ正規化して保存する。
 
@@ -108,6 +113,7 @@ Taskが期限超過していても、当日 `保留` を選んだ場合はその
 - HOME保留で元ドメインstatusを書き換える
 - HOME保留を無期限の非表示設定として扱う
 - HOME保留を実施済みReceiptとして記録する
+- 同じ根拠という理由だけで異なる人物候補を同時に保留する
 
 ## Acceptance
 
@@ -115,6 +121,7 @@ Taskが期限超過していても、当日 `保留` を選んだ場合はその
 - 元ドメイン状態を変更しない
 - 保留は当日だけ有効
 - 翌日は通常判定へ戻る
+- 人物対象が異なる候補を独立して保留できる
 - Taskの `waiting` と混同しない
 - B-33の期限超過表示と矛盾しない
 - B-36/B-37の実施済み履歴・再掲抑制と責務分離される

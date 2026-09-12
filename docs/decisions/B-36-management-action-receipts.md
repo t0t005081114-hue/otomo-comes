@@ -1,6 +1,6 @@
 # B-36 Management Action Receipt 契約
 
-Status: Accepted v1.2
+Status: Accepted v1.3
 Decision ID: B-36
 
 ## 結論
@@ -46,9 +46,26 @@ HOME上段4カードの完了操作:
 
 `evidence_refs` は、その実施判断に使ったEvidence Ref集合を保持する。
 
-`evidence_fingerprint` は、再掲抑制を安定して行うための機械比較キーであり、`evidence_refs` の各要素から `source_type / source_system / source_id` を取り出し、順序を正規化したうえで決定的に生成する。
+## evidence_fingerprint
 
-labelはfingerprintへ含めない。
+再掲抑制の比較を実装ごとに揺らさないため、fingerprint生成手順を固定する。
+
+1. 各Evidence Refから `source_type / source_system / source_id` だけを取得する。
+2. 各要素を次のUTF-8文字列へ正規化する。
+
+```text
+source_type|source_system|source_id
+```
+
+3. 完全一致する重複行を除去する。
+4. 正規化文字列をUnicode code point順の昇順でソートする。
+5. `\n` で連結する。末尾改行は付けない。
+6. 連結文字列のUTF-8 bytesへSHA-256を適用する。
+7. 小文字hex 64文字を `evidence_fingerprint` として保存する。
+
+`label` は表示文言のためfingerprintへ含めない。
+
+Evidence Refが0件の候補ではfingerprintを生成せず、その候補を再掲抑制の自動対象にしない。B-24 AI actionは `source_refs` 1件以上が必須なので通常は0件にならない。
 
 ## 原則
 
@@ -133,13 +150,15 @@ Receiptは「実際にマネジメント行動を実施した」場合だけを�
 - `source_system` を省略して異なる取得元の同一IDを衝突させる
 - 複数根拠の候補で任意の1件だけを選び再掲抑制キーにする
 - labelをfingerprintへ含める
+- JSONオブジェクトのキー順やEvidence Ref配列順をそのままhashして実装差を生む
 
 ## Acceptance
 
 - HOMEの完了操作をカード種別別に監査できる
 - task / delegation / praise / bottleneckの実施履歴を共通形式で追跡できる
 - 主参照先とEvidence Ref集合を両方保持できる
-- 複数根拠でも決定的な `evidence_fingerprint` を生成できる
+- 複数根拠でも同一手順で `evidence_fingerprint` を生成できる
+- Evidence Ref配列順やlabel変更でfingerprintが変わらない
 - 元データの意味を壊さない
 - Praise実施で人物状態を書き換えない
 - Bottleneckは実解消時だけresolvedになる

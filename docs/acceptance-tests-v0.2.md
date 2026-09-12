@@ -163,7 +163,7 @@ AIが同じ根拠を引用する場合、これらを勝手に変更しない。
 
 **BLOCKING**
 
-B-24 Decision v0.4 / JSON Schema v0.3準拠。
+B-24 Decision v0.5 / JSON Schema v0.4準拠。
 
 Top-level最低限:
 - schema_version
@@ -175,13 +175,21 @@ Top-level最低限:
 - kpi_allocation_comment
 - actions
 
-不正JSON、必須欠落、enum不正、unknown propertyは保存しない。
+不正JSON、必須欠落、enum不正、unknown property、canonical COMES IDのUUID形式不正は保存しない。
 
 ---
 
-## AT-14 Referential Validation
+## AT-14 Identity / Referential Validation
 
 **BLOCKING**
+
+内部ID:
+- `decision_pack_id` が実在し、取込対象Decision Packと一致する
+- `assignee_person_id` が実在する
+- `related_person_ids` の全要素が実在する
+- `delegate_to_person_id` が存在する場合は実在する
+- 上記Decision Pack / Personがすべて取込コンテキストと同じ `organization_id` に属する
+- 未解決・別organizationの内部IDを含むAI結果は保存しない
 
 全AI actionの `source_refs` は以下のどちらかへ解決できること。
 
@@ -215,7 +223,7 @@ Top-level最低限:
 - assignee
 - related peopleを `work_item_related_people` に内部 `person_id` で保持
 - `due_bucket`
-- today / within_week の `due_date` を具体期限として `due_at` に保持
+- B-24の `due_date` を `work_items.due_date` に日付のまま保持
 - priority
 - recommended action
 - expected outcome
@@ -227,7 +235,10 @@ Top-level最低限:
 追加条件:
 - `related_person_names` だけを内部正本にしない
 - AI提案由来タスクでは `due_bucket` が必須
+- `today / within_week` では `due_date` が必須
 - `not_urgent` は具体期限なしでも有効
+- AIの `due_date` に任意時刻を補って `due_at` へ変換しない
+- `due_at` は時刻まで明示された別入力がある場合のみ設定する
 - AI内容とhuman notesは分離する
 
 ---
@@ -245,7 +256,8 @@ Decision Pack
 → B-24準拠JSON
 → COMESへ貼付
 → Schema validation
-→ Referential Validation
+→ Identity Validation
+→ Evidence Referential Validation
 → AI提案表示
 ```
 

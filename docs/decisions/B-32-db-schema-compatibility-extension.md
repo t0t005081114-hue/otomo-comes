@@ -1,6 +1,6 @@
 # B-32 DBスキーマ整合拡張
 
-Status: Accepted v1.1
+Status: Accepted v1.2
 Decision ID: B-32
 
 ## 1. 目的
@@ -148,6 +148,7 @@ B-02 `work_items` に以下を追加する。
 
 - `origin_type` enum(manual, ai_proposal, imported) default manual
 - `origin_ai_proposal_id` uuid nullable FK -> ai_proposals.id
+- `due_bucket` enum(today, within_week, not_urgent) nullable
 - `recommended_action` text nullable
 - `expected_outcome` text nullable
 - `success_criteria` text nullable
@@ -155,7 +156,32 @@ B-02 `work_items` に以下を追加する。
 - `ai_source_refs` jsonb nullable
 - `human_notes` text nullable
 
+期限の扱い:
+- `due_bucket` はB-24の時間軸分類をそのまま保持する。
+- B-02既存の `due_at` は具体的な期限日時の保存先として引き続き使用する。
+- AI提案由来タスクでは `due_bucket` を必須とする。
+- `due_bucket = today / within_week` の場合、B-24に従って受領した `due_date` を `due_at` へ変換して保持する。
+- `due_bucket = not_urgent` では `due_at` がnullでもよい。
+- 手動作成 / imported taskでは `due_bucket` をnullableのまま許容し、既存タスクとの互換性を維持する。
+
+関連人物を正規化して保持するため `work_item_related_people` を追加する。
+
+### work_item_related_people
+
+- `id` uuid PK
+- `organization_id` uuid FK
+- `work_item_id` uuid FK -> work_items.id
+- `person_id` uuid FK -> people.id
+- `relation_type` text default `related`
+- `created_at` timestamptz
+
+Unique:
+- `(work_item_id, person_id, relation_type)`
+
 原則:
+- B-24 `related_person_ids` は採用時にこの関連テーブルへ保存する。
+- `related_person_names` は外部AI処理と表示補助用であり、内部正本は `person_id` とする。
+- 関係者が0件でもタスク自体は有効とする。
 - AI生成内容と人間の追記を分離する。
 - `origin_type = ai_proposal` の場合は `origin_ai_proposal_id` を保持する。
 - `estimated_minutes` がnullでもタスクは有効とする。
@@ -234,6 +260,7 @@ B-24に従い、AI取込時はJSON Schema validationに加えて根拠参照の�
 
 既存B-02に加えて:
 - `work_items`（AI task拡張込み）
+- `work_item_related_people`
 - `schedule_events`
 - `home_daily_ai_baselines`（日付単位の固定参照状態）
 
@@ -253,7 +280,7 @@ B-24に従い、AI取込時はJSON Schema validationに加えて根拠参照の�
 
 競合時は以下を優先する。
 
-1. B-32 v1.1
+1. B-32 v1.2
 2. B-24 / B-23 / B-10 / B-26 / B-30の各責務専用Decision
 3. B-02の旧記述
 
@@ -265,7 +292,8 @@ B-24に従い、AI取込時はJSON Schema validationに加えて根拠参照の�
 - 1on1構造化情報のAI由来・人間確認を追跡できる
 - AI分析結果を履歴保存できる
 - AI Proposalの `pending / accepted / held / rejected` を区別できる
-- AI提案からタスクへ必要情報を引き継げる
+- AI提案から `due_bucket / due_at / related people` を含む必要情報をタスクへ引き継げる
+- AI提案からタスクへ必要な関係者を内部 `person_id` で保持できる
 - Decision Pack補正履歴を監査できる
 - Schedule Eventを保存できる
 - AI根拠参照の実在検証をDB境界で行える

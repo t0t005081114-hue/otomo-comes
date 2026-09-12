@@ -25,7 +25,7 @@ COMESは人事評価や最終的なマネジメント判断を確定しない。
 - 停滞 / ボトルネック候補抽出
 - 委譲 / 要フォロー / 褒める / 仕組み化候補抽出
 - Decision Pack生成
-- AI出力のSchema validation / Referential Validation
+- AI出力のSchema validation / Identity Validation / Evidence Referential Validation
 - AI結果・提案・採否・タスク化の保存と表示
 
 ### AI
@@ -78,7 +78,7 @@ Coreへ特定ベンダー固有構造を持ち込まない。
 
 正本DBはSupabase PostgreSQL。
 
-基礎スキーマはB-02、後発整合拡張はB-32 v1.2を正本とする。
+基礎スキーマはB-02、後発整合拡張はB-32 v1.3を正本とする。
 
 主要概念:
 - Person / Role / Reporting Relation
@@ -260,7 +260,7 @@ Human Adjustment:
 - AI投入済み
 - AI結果取込済み
 
-DBではB-32 v1.2の `workflow_status` で保持する。
+DBではB-32 v1.3の `workflow_status` で保持する。
 
 ---
 
@@ -276,7 +276,8 @@ Decision Pack生成
 → B-24準拠JSON受領
 → COMESへ貼付
 → JSON Schema validation
-→ Referential Validation
+→ Identity Validation
+→ Evidence Referential Validation
 → AI提案表示
 → 人間が採用 / 保留 / 見送り
 → 採用分を即タスク化
@@ -286,13 +287,13 @@ Scheduled Taskを必須経路にしない。
 
 当日のHOMEは、翌朝時点でCOMESへ取込済みの最新AI分析結果を基準として固定する。
 
-日付ごとの固定結果はB-32 v1.2の `home_daily_ai_baselines` で保持し、日中に新しいAI結果を取り込んでも同日の基準を自動差し替えしない。
+日付ごとの固定結果はB-32 v1.3の `home_daily_ai_baselines` で保持し、日中に新しいAI結果を取り込んでも同日の基準を自動差し替えしない。
 
 ---
 
 ## 13. AI Analysis Result
 
-Decision契約はB-24 v0.4、外部AI JSON Schemaはv0.3を正本とする。
+Decision契約はB-24 v0.5、外部AI JSON Schemaはv0.4を正本とする。
 
 Top-level必須:
 - schema_version
@@ -304,9 +305,17 @@ Top-level必須:
 - kpi_allocation_comment
 - actions
 
+内部ID契約:
+- `decision_pack_id`
+- `assignee_person_id`
+- `related_person_ids`
+- `delegate_to_person_id`
+
+はCOMES内部UUIDを使用する。取込時にUUID形式だけでなく、実在性と同一 `organization_id` 所属まで検証する。
+
 各actionは最低1件の `source_refs` を持つ。
 
-JSON Schemaが正しくても、根拠参照が対象Decision Packまたは実在COMESレコードへ解決できなければ保存しない。
+JSON Schemaが正しくても、内部IDまたは根拠参照が解決できなければ保存しない。
 
 Proposal状態:
 - pending
@@ -365,11 +374,13 @@ HOMEクイック操作:
 - レビュー
 - 仕組み化
 
-AI採用actionはB-32 v1.2のtask origin metadataを保持してタスク化する。
+AI採用actionはB-32 v1.3のtask origin metadataを保持してタスク化する。
 
 AI提案由来タスクでは:
 - `due_bucket` を保持する
-- `today / within_week` の `due_date` は具体期限として `due_at` へ保存する
+- B-24の `due_date` は `work_items.due_date` に日付のまま保存する
+- AI契約に時刻がないため、任意時刻を補って `due_at` へ変換しない
+- `due_at` は人間または別入力で時刻まで明示された場合にのみ使う
 - `related_person_ids` は `work_item_related_people` へ内部 `person_id` で保存する
 - `related_person_names` は表示補助であり正本IDにはしない
 

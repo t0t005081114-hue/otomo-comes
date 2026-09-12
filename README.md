@@ -52,5 +52,5 @@ Core / UI / AI契約の実装は開始可能。
 - `.claude/rules/` … 対象ファイルを触ったときだけ読み込まれる実装ルール
 - `.claude/hooks/harness-guard.mjs` … secret混入・機微データログ出力・破壊的操作・正本書き換えのブロック
 
-アプリ本体（Next.js / migration / Adapter）は未実装。検証コマンド
-（`npm run lint` / `typecheck` / `test` / `build`）はPhase 1のscaffoldで作成する。
+アプリ本体（業務機能 / migration / Adapter）は未実装。検証コマンド
+（`npm run lint` / `typecheck` / `test` / `build`）はPhase 0のscaffoldで作成済み（`docs/phases/phase-00-development-foundation.md`）。

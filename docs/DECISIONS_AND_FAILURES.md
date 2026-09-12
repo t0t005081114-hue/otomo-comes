@@ -107,3 +107,23 @@ Status: Harness v0.1（運用ファイル / 製品仕様の正本ではない）
 - 検証: BLOCK 39件 / PASS 27件 を実測（66/66 PASS）。`post` 警告3種（migration / large write /
   Phase記録未更新）もsession単位で1回だけ発火することを確認。
 - 人間判断が必要か: No
+
+### 2026-09-13 Next.js 16.3+ が AGENTS.md / CLAUDE.md を自動書き換えする
+
+- 種別: 失敗
+- Phase: phase-00
+- 関連: B-01
+- 何が起きたか: `next build` / `next dev` 実行時、Next.js 16.3.5が
+  `<!-- BEGIN:nextjs-agent-rules -->`〜`<!-- END:nextjs-agent-rules -->` の管理ブロックを
+  リポジトリ直下の `AGENTS.md`（存在しなければ作成、存在すれば追記）へ自動で書き込んだ。
+  本リポジトリの `AGENTS.md` はCodex独立レビューの入口ルールという固有の意味を持つ既存ファイルであり、
+  意図しない内容が混入した。
+- 原因 / 判断: Next.js 16.3の新機能（AI coding agent向けdocs導線の自動生成）。デフォルトで有効。
+  `next.config.ts` の `agentRules: false` で無効化できる（Next.js公式ドキュメント
+  `node_modules/next/dist/docs/01-app/02-guides/ai-agents.md` に記載）。
+- 結果: `AGENTS.md` を `git checkout --` で元に戻し、`next.config.ts` へ `agentRules: false` を設定した。
+  再度 `npm run build` を実行し、`AGENTS.md` が変更されないことを確認済み。
+- 再発防止 / 次にやること: Next.jsをバージョンアップする際、`agentRules: false` が
+  設定のまま維持されているか確認する。将来的に `AGENTS.md` を自動生成に任せたい場合は
+  人間判断で方針を変える（本リポジトリのAGENTS.mdはHarness文書のため上書き運用に向かない）。
+- 人間判断が必要か: No

@@ -1,0 +1,121 @@
+# Phase 00 — development-foundation
+
+Status: blocked (Codex独立レビュー待ち)
+Date: 2026-09-13
+
+## Scope
+
+- Next.js 16 / React 19 / TypeScript 5 / Tailwind CSS v4 の最小scaffold（App Router）
+- `docs/DEVELOPMENT_STANDARDS.md` §1 のディレクトリ構成（`src/{app,application,core,adapters,schemas,shared}`, `tests/{unit,integration,e2e}`）
+- `npm run lint / typecheck / test / build` が実際に動く状態（`test:integration` / `test:e2e` も可能な範囲で）
+- Vitest（unit）基盤とpure TypeScriptの最小テスト
+- Playwright（e2e）起動可能な設定（ブラウザ導入不可の場合は理由を明示しPASS扱いしない）
+- ESLint + TypeScript strict構成
+- Supabase開発ディレクトリ準備（CLI初期化 / `supabase/migrations/` 置き場 / generated types導線のみ。業務テーブルは作らない）
+- `.env.example`（値なし、最小限のplaceholderのみ）
+- 最小GitHub Actions CI（install / lint / typecheck / test / build）
+- Phase記録ファイル作成
+
+## Out of scope
+
+- DB業務スキーマ本実装（B-02 / B-32 / B-41）
+- Auth実装（Supabase Auth自体の組込みはPhase 0では行わない。B-18のロール/権限判定も含む）
+- Organization / Person / Task / HOME / Decision Pack / AI Result import / 1on1 / Manager Observation / Schedule の業務画面・ロジック
+- CRM Adapter / Drive Adapter / AI Adapter の実装
+- **B-04**（CRM → Daily Work Log実データmapping）: OPEN/BLOCKING-NOW（`docs/open-issues-v0.2.md`）。Phase 0はCRM Adapterに触れないため非依存。
+- **B-09**（Meet / Drive実ファイル識別）: OPEN/BLOCKING-NOW。Phase 0はDrive/Meet取込に触れないため非依存。
+- Vercel本番deploy、Supabase本番project作成、CI上でのmigration自動適用
+- Prettier等、必要性が明確でない追加ツール
+
+## Source of truth
+
+| 参照 | 内容 |
+|---|---|
+| B-01 | 技術スタック（Next.js 16 / React 19 / TS 5 / Tailwind v4 / Supabase / Vitest / Playwright / GitHub Actions）、ディレクトリ構成、`src/core` vendor import禁止 |
+| B-18 §1 | 認証Identity分離（Phase 0では未実装、方針のみ踏まえてSupabase Auth導入方向を阻害しない構成にする） |
+| B-19 §6 | ログ出力方針・secret非commit方針（`.env.example`のみコミット） |
+| DEVELOPMENT_STANDARDS §1 | Architecture層構成・ディレクトリ |
+| DEVELOPMENT_STANDARDS §2 | TypeScript strict / any禁止 / 境界Zod検証（Phase 0では境界コード自体は未実装、方針のみ） |
+| DEVELOPMENT_STANDARDS §3 | migration原子性・置き場所（Phase 0はディレクトリ準備のみ） |
+| DEVELOPMENT_STANDARDS §4 | Secret / `.env`運用 |
+| DEVELOPMENT_STANDARDS §6 | Testing区分（unit/integration/e2e）とツール |
+| spec v0.2 §3 | Architecture Boundary（Input Adapters → COMES Core → Decision Pack → AI Boundary → AI Analysis Result → COMES UI/Task） |
+| open-issues-v0.2 | B-04 / B-09 BLOCKING-NOW判定、それ以外に設計Blockingなし |
+| PHASE_WORKFLOW §1〜§2 | 標準ループ・Phase記録項目 |
+| CLAUDE.md §3, §5 | 禁止事項、検証コマンド必須化 |
+
+## Acceptance criteria
+
+Phase 0に直接対応するAcceptance IDは存在しない（業務機能を実装しないため）。
+基盤Phaseとして以下を **indirect coverage** として記録する。
+
+| ID | 内容 | 判定方法 | 結果 |
+|---|---|---|---|
+| AT-01 (indirect) | COMES Coreの成立に必要な層境界（`src/core` vendor非依存）を構造的に維持する土台を作る | `src/core` にvendor importが無いこと（現状コード無し）、層ディレクトリが存在すること | PASS（indirect / コード未実装のため自明） |
+| — | 直接対応Acceptanceなし | 基盤Phaseのため該当なし | N/A |
+
+## Files changed
+
+| ファイル | 責務 |
+|---|---|
+| `package.json` / `package-lock.json` | B-01技術スタック依存関係、`lint/typecheck/test/test:integration/test:e2e/build` script定義（PHASE_WORKFLOW §1, CLAUDE.md §5） |
+| `tsconfig.json` | TypeScript strict構成（DEVELOPMENT_STANDARDS §2）。`npm run build` 実行時にNext.jsが `jsx: react-jsx` 等を自動追記（フレームワーク必須の変更） |
+| `next.config.ts` | Next.js最小設定。`agentRules: false` でNext.js 16.3+の`AGENTS.md`自動書き換えを無効化（下記Unresolved issues参照） |
+| `eslint.config.mjs` | ESLint flat config。`eslint-config-next` のnative flat config（`core-web-vitals` + `typescript`）を直接使用 |
+| `postcss.config.mjs` | Tailwind CSS v4のPostCSSプラグイン設定 |
+| `src/app/layout.tsx` / `page.tsx` / `globals.css` | 動作確認用の最小Next.js App Router画面（業務画面ではない） |
+| `src/{core,application,adapters,schemas,shared}/README.md` | DEVELOPMENT_STANDARDS §1のディレクトリ構成・層責務の明文化（コード未実装） |
+| `vitest.config.ts` | Vitest `unit` / `integration` project分割。`passWithNoTests: true`（DEVELOPMENT_STANDARDS §6） |
+| `tests/unit/example.test.ts` | pure TypeScriptの動作確認用smoke test |
+| `tests/integration/README.md` / `tests/e2e/README.md` | テスト区分の置き場所を明示（テスト本体は業務スキーマ/画面実装後） |
+| `playwright.config.ts` | Playwright起動可能な最小設定（B-01） |
+| `supabase/config.toml` / `.gitignore` / `migrations/.gitkeep` / `README.md` | `supabase init` によるローカル開発ディレクトリ準備のみ（業務テーブルなし。B-01, DEVELOPMENT_STANDARDS §3） |
+| `.env.example` | 値なしのplaceholder環境変数（B-19 §6, DEVELOPMENT_STANDARDS §4） |
+| `.github/workflows/ci.yml` | push/PRで install→lint→typecheck→test→build のみ実行する最小CI（B-01 §7, CLAUDE.md §3の禁止範囲を超えない） |
+| `docs/phases/phase-00-development-foundation.md` | 本Phase記録（PHASE_WORKFLOW §2） |
+| `docs/DECISIONS_AND_FAILURES.md` | Next.js 16.3+のAGENTS.md自動書き換え挙動と対処の追記（既存記述は削除せず追記のみ） |
+| `README.md` | Harness scaffold完了に伴う導線記述の更新（「Phase 1」→「Phase 0」、documentation.mdルールに基づく整合確認） |
+
+## Validation result
+
+| コマンド | 結果 | 備考 |
+|---|---|---|
+| `npm run lint` | PASS | ESLint 9.39.5 + `eslint-config-next` flat config。エラー・警告なし |
+| `npm run typecheck` | PASS | `tsc --noEmit`。エラーなし |
+| `npm run test` | PASS | Vitest `unit` project、1 test file / 1 test |
+| `npm run test:integration` | PASS | Vitest `integration` project。対象テスト0件（`passWithNoTests: true`）。DB業務スキーマ未実装のため該当なし |
+| `npm run build` | PASS | `next build`（Turbopack）。2ルート（`/`, `/_not-found`）を静的生成 |
+| `npm run test:e2e` | FAIL（想定内） | `playwright test` → `Error: No tests found`。HOME/Task等の対象画面が未実装のためe2eテストが存在しない。Playwright設定自体（`playwright.config.ts`）はCLIから認識可能であることを確認済み。ブラウザバイナリは未インストール（`npx playwright install --dry-run` で確認、時間・帯域を要するためPhase 0では未実行）。**勝手にPASS扱いにしない。** |
+
+## Self-review
+
+`docs/PHASE_WORKFLOW.md` §4 の結果。未達項目のみ記載（他は該当なし/PASS）。
+
+- 仕様: 全変更がB-01 / DEVELOPMENT_STANDARDS §1・§4・§6に根拠あり。業務仕様・新概念の追加なし。
+- B-04/B-09 Gate: 該当コード・mapping・識別ロジックなし（非該当）。
+- アーキテクチャ: `src/core` にコード自体が存在せず、vendor importなし（確認済み）。Adapter未実装のため外部連携もなし。
+- データ/AI: 該当コードなし（Phase 0 scope外）。
+- Security: `.env` はGit管理外、`.env.example` は値なし。secretをcommit対象に含めていないことを `git add -n .` で確認済み。ログ出力コード自体が存在しない。
+- DB: `supabase/migrations/` は空。業務テーブル・migration本体なし。
+- 検証: lint/typecheck/test/build を実行し記録した（Validation result参照）。新しいbusiness ruleは無いためunit testはsmoke testのみ。
+
+未達 / 留意事項:
+- 検証commandに直接対応するAcceptance IDは存在しない（Phase 0 scopeのため、Acceptance criteriaにindirectとして記載）。
+- `npm run test:e2e` はテスト対象画面が無いため `Error: No tests found` でFAIL終了する。設定自体の起動確認はできているが、コマンドとしてはPASSではない（正直に記録し、PASS扱いにしていない）。
+
+## Codex review
+
+- 指摘:
+- 対応:
+- 仕様変更提案（人間判断へ）:
+
+## Unresolved issues
+
+- `npm run test:e2e` は対象画面が存在しないため実行不能（`Error: No tests found`）。Playwrightブラウザバイナリも未インストール。HOME/Task等の画面実装Phaseで解消する。
+- Next.js 16.3+ が `AGENTS.md` / `CLAUDE.md` へ管理ブロックを自動書き込みする挙動を確認し、`next.config.ts` の `agentRules: false` で無効化した（`docs/DECISIONS_AND_FAILURES.md` に記録済み）。Next.jsアップグレード時にこの設定が保持されているか都度確認する必要がある。
+- `eslint-config-next@16.3.5` がESLint 10（`@eslint/eslintrc`のFlatCompat経由）で circular JSON エラーを起こしたため、native flat config importに切り替え、ESLintはpeer要件を満たす**9.39.5**（EOLバージョン）を採用した。ESLint 10対応の`eslint-config-next`がリリースされ次第アップグレードを検討する。
+- Supabase CLIはnpx経由（`npx supabase@2.117.0`）で実行し、グローバルインストールしていない。今後migration作成等で呼び出し方法を固定するか検討の余地がある。
+
+## Human decision required
+
+None（Step 1〜4の時点でBlockingなし。実装中に発生した場合はここへ追記し、実装を停止する）

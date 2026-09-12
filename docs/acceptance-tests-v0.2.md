@@ -128,6 +128,8 @@ B-09で実ファイル確認後に以下を検証する。
 - Markdownは派生物
 - 候補0件でも配列自体を保持
 - source statusとdata statusを保持
+- workflow statusとして `drafting / confirmed / ai_submitted / ai_result_imported` を保持できる
+- 確認後に編集したrevisionは `drafting` に戻る
 
 ---
 
@@ -194,7 +196,9 @@ Top-level最低限:
 
 **BLOCKING**
 
-- accepted / held / rejectedを保存できる
+- AI結果取込直後はproposal statusが `pending`
+- `pending / accepted / held / rejected` を区別して保存できる
+- `pending` を `held` の代替として使わない
 - acceptedは追加確認モーダルなしで即タスク化
 - heldはActive表示に残る
 - rejectedは通常表示から外れるが履歴保持
@@ -274,8 +278,9 @@ Scheduled Taskを必須条件にしない。
 
 - 今日のモードと短いAIコメントを1行表示
 - 今月進捗用に `kpi_allocation_comment` を別表示できる
-- 翌朝時点で取込済みの最新AI結果を当日の基準として固定
-- AI結果が無い場合は補完せず未生成 / 未取込表示
+- 翌朝時点で取込済みの最新AI結果を、その日付のbaselineとして1件固定保存できる
+- 同日の日中に新AI結果が入っても、その日のbaselineを自動差し替えしない
+- AI結果が無い場合は `not_available` を保持し、補完せず未生成 / 未取込表示
 
 ---
 

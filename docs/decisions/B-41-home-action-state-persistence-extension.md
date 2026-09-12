@@ -1,6 +1,6 @@
 # B-41 HOME操作状態のDB保存拡張
 
-Status: Accepted
+Status: Accepted v1.1
 Decision ID: B-41
 
 ## 1. 目的
@@ -44,7 +44,7 @@ Unique:
 
 ## 3. Management Action Receipt
 
-B-35 / B-36 / B-37の実施済み行動を保存するため、`management_action_receipts` を追加する。
+B-35 / B-36 v1.2 / B-37 v1.1の実施済み行動を保存するため、`management_action_receipts` を追加する。
 
 ### management_action_receipts
 
@@ -56,6 +56,8 @@ B-35 / B-36 / B-37の実施済み行動を保存するため、`management_actio
 - `source_system` text
 - `source_id` text
 - `source_ref` jsonb nullable
+- `evidence_refs` jsonb not null
+- `evidence_fingerprint` text not null
 - `performed_by_user_id` uuid FK -> profiles.user_id
 - `performed_at` timestamptz
 - `note` text nullable
@@ -64,8 +66,10 @@ B-35 / B-36 / B-37の実施済み行動を保存するため、`management_actio
 
 原則:
 - Receiptは追記型。
-- `source_type / source_system / source_id` はEvidence Refと同じ意味契約を使う。
-- 表示labelを同一性キーにしない。
+- `source_type / source_system / source_id` は主参照先を表す。
+- `evidence_refs` は実施判断に使ったEvidence Ref集合を保持する。
+- `evidence_fingerprint` は、Evidence Ref集合の `source_type / source_system / source_id` を順序正規化して決定的に生成する。
+- labelはfingerprintへ含めない。
 - 元ドメイン状態は必要な場合のみ別途更新する。
 - Praise実施で人物/KPI状態を変更しない。
 - Bottleneckは実解消時だけ `resolved` へ変更する。
@@ -79,24 +83,25 @@ B-35 / B-36 / B-37の実施済み行動を保存するため、`management_actio
 
 ## 4. 再掲抑制
 
-B-37に従い、候補生成後かつDecision Pack/HOME掲載前に `management_action_receipts` を照合する。
+B-37 v1.1に従い、候補生成後かつDecision Pack/HOME掲載前に `management_action_receipts` を照合する。
 
 同一性:
 
 ```text
-source_type + source_system + source_id + action_kind
+action_kind + evidence_fingerprint
 ```
 
-- 同一根拠・同一行動が実施済み → 再掲抑制
-- 新しいEvidence Ref → 新候補として表示可能
+- 同一根拠集合・同一行動が実施済み → 再掲抑制
+- 新しいEvidence Refが追加されfingerprintが変わる → 新候補として表示可能
+- Evidence Ref配列の順序差だけではfingerprintを変えない
 - 日付変更のみ → 新候補扱いにしない
-- 同一性が曖昧 → 推測抑制せず `needs_confirmation`
+- 安定したfingerprintを生成できない → 推測抑制せず `needs_confirmation`
 
 ---
 
 ## 5. Task期限表示
 
-B-33のローリング7日契約は、既存 `work_items.due_bucket / due_date` を利用するため新規テーブルは不要。
+B-33 v1.1のローリング7日契約は、既存 `work_items.due_bucket / due_date` を利用するため新規テーブルは不要。
 
 表示時の基準日 `D`:
 - `due_date < D` かつ未完了 → HOME/Task表示上は `today` レーンへ昇格し `期限切れ` シグナルを付ける
@@ -145,8 +150,8 @@ Task画面では元Taskを保持する。
 
 競合時:
 
-1. B-41
-2. B-40 v1.1 / B-39 / B-37 / B-36 v1.1 / B-35 / B-34 / B-33 v1.1
+1. B-41 v1.1
+2. B-40 v1.1 / B-39 / B-37 v1.1 / B-36 v1.2 / B-35 / B-34 / B-33 v1.1
 3. B-32 v1.3
 4. B-02
 
@@ -157,7 +162,8 @@ Task画面では元Taskを保持する。
 - HOME保留を4カード共通で永続化できる
 - HOME保留とTask `waiting` を分離できる
 - 実施済み管理行動を追記履歴として保存できる
-- B-37の再掲抑制キーをDB上で保持できる
+- 複数Evidence Refを含む再掲抑制キーをDB上で保持できる
+- Evidence Ref順序差で再掲抑制が不安定にならない
 - 同一完了操作の二重実行を防止できる
 - 期限超過を表示上だけtodayへ昇格できる
 - accepted AI Proposal由来TaskをHOMEで二重表示しない

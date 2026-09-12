@@ -78,7 +78,7 @@ Coreへ特定ベンダー固有構造を持ち込まない。
 
 正本DBはSupabase PostgreSQL。
 
-基礎スキーマはB-02、後発整合拡張はB-32を正本とする。
+基礎スキーマはB-02、後発整合拡張はB-32 v1.1を正本とする。
 
 主要概念:
 - Person / Role / Reporting Relation
@@ -92,6 +92,7 @@ Coreへ特定ベンダー固有構造を持ち込まない。
 - DecisionPack / DecisionPackAdjustment
 - AIAnalysisResult / AIProposal
 - ScheduleEvent
+- HomeDailyAIBaseline
 
 現在状態と履歴を分離する。
 
@@ -258,6 +259,8 @@ Human Adjustment:
 - AI投入済み
 - AI結果取込済み
 
+DBではB-32 v1.1の `workflow_status` で保持する。
+
 ---
 
 ## 12. Personal MVP AI Flow
@@ -282,6 +285,8 @@ Scheduled Taskを必須経路にしない。
 
 当日のHOMEは、翌朝時点でCOMESへ取込済みの最新AI分析結果を基準として固定する。
 
+日付ごとの固定結果はB-32 v1.1の `home_daily_ai_baselines` で保持し、日中に新しいAI結果を取り込んでも同日の基準を自動差し替えしない。
+
 ---
 
 ## 13. AI Analysis Result
@@ -303,9 +308,12 @@ Top-level必須:
 JSON Schemaが正しくても、根拠参照が対象Decision Packまたは実在COMESレコードへ解決できなければ保存しない。
 
 Proposal状態:
+- pending
 - accepted
 - held
 - rejected
+
+AI結果取込直後は `pending`。人間が判断して初めて `accepted / held / rejected` のいずれかへ遷移する。
 
 acceptedは確認モーダルなしでタスク化。
 

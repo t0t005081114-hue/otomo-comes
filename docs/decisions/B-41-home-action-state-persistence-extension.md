@@ -1,6 +1,6 @@
 # B-41 HOME操作状態のDB保存拡張
 
-Status: Accepted v1.2
+Status: Accepted v1.3
 Decision ID: B-41
 
 ## 1. 目的
@@ -44,13 +44,14 @@ Unique:
 
 ## 3. Management Action Receipt
 
-B-35 / B-36 v1.3 / B-37 v1.1の実施済み行動を保存するため、`management_action_receipts` を追加する。
+B-35 / B-36 v1.4 / B-37 v1.2の実施済み行動を保存するため、`management_action_receipts` を追加する。
 
 ### management_action_receipts
 
 - `id` uuid PK
 - `organization_id` uuid FK
 - `manager_person_id` uuid FK -> people.id
+- `subject_person_id` uuid nullable FK -> people.id
 - `action_kind` enum(task_completed, delegation_handled, praise_delivered, bottleneck_resolved)
 - `source_type` text
 - `source_system` text
@@ -66,9 +67,10 @@ B-35 / B-36 v1.3 / B-37 v1.1の実施済み行動を保存するため、`manage
 
 原則:
 - Receiptは追記型。
+- `subject_person_id` は人物対象が明確な場合に保持する。
 - `source_type / source_system / source_id` は主参照先を表す。
 - `evidence_refs` は実施判断に使ったEvidence Ref集合を保持する。
-- `evidence_fingerprint` はB-36 v1.3の正規化手順で生成する。
+- `evidence_fingerprint` はB-36 v1.4のcanonical生成手順を使う。
 - labelはfingerprintへ含めない。
 - 元ドメイン状態は必要な場合のみ別途更新する。
 - Praise実施で人物/KPI状態を変更しない。
@@ -83,15 +85,22 @@ B-35 / B-36 v1.3 / B-37 v1.1の実施済み行動を保存するため、`manage
 
 ## 4. 再掲抑制
 
-B-37 v1.1に従い、候補生成後かつDecision Pack/HOME掲載前に `management_action_receipts` を照合する。
+B-37 v1.2に従い、候補生成後かつDecision Pack/HOME掲載前に `management_action_receipts` を照合する。
 
-同一性:
+人物対象あり:
 
 ```text
-action_kind + evidence_fingerprint
+action_kind + subject_person_id + evidence_fingerprint
 ```
 
-- 同一根拠集合・同一行動が実施済み → 再掲抑制
+人物対象なし:
+
+```text
+action_kind + source_type + source_system + source_id + evidence_fingerprint
+```
+
+- 同一比較キーで実施済み → 再掲抑制
+- subject_person_idが異なる → 別候補
 - 新しいEvidence Refが追加されfingerprintが変わる → 新候補として表示可能
 - Evidence Ref配列の順序差だけではfingerprintを変えない
 - 日付変更のみ → 新候補扱いにしない
@@ -154,8 +163,8 @@ Task単体完了から元ドメイン成果へは自動昇格しない。
 
 競合時:
 
-1. B-41 v1.2
-2. B-45 / B-44 / B-43 / B-42 / B-40 v1.1 / B-39 / B-37 v1.1 / B-36 v1.3 / B-35 / B-34 / B-33 v1.1
+1. B-41 v1.3
+2. B-45 / B-44 / B-43 / B-42 / B-40 v1.1 / B-39 / B-37 v1.2 / B-36 v1.4 / B-35 / B-34 / B-33 v1.1
 3. B-32 v1.3
 4. B-02
 
@@ -166,8 +175,10 @@ Task単体完了から元ドメイン成果へは自動昇格しない。
 - HOME保留を4カード共通で永続化できる
 - HOME保留とTask `waiting` を分離できる
 - 実施済み管理行動を追記履歴として保存できる
-- B-36 v1.3のcanonical evidence fingerprintをDB上で保持できる
+- 人物対象を `subject_person_id` で区別できる
+- B-36 v1.4のcanonical evidence fingerprintをDB上で保持できる
 - Evidence Ref順序差で再掲抑制が不安定にならない
+- 同じ根拠集合でも異なる人物候補を誤抑制しない
 - 同一完了操作の二重実行を防止できる
 - 期限超過を表示上だけtodayへ昇格できる
 - accepted AI Proposal由来TaskをHOMEで二重表示しない

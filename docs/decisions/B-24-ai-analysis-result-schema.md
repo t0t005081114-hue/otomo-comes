@@ -1,6 +1,6 @@
 # B-24 AI Analysis Result Schema
 
-Status: Accepted v0.3
+Status: Accepted v0.4
 Decision ID: B-24
 
 ## 1. Purpose
@@ -26,7 +26,7 @@ Fixed JSON response
   ↓
 COMES JSON Schema validation
   ↓
-AI Proposal tab
+AI Proposal tab (`pending`)
   ↓
 Human chooses Accept / Hold / Reject
   ↓
@@ -34,6 +34,7 @@ Accepted actions become tasks immediately
 ```
 
 Important:
+- Imported proposals start as `pending` until the human makes a decision.
 - Accepting an AI proposal does not open an additional confirmation modal in MVP.
 - Accepted proposals become tasks immediately.
 - Corrections are made afterward in the task itself.
@@ -256,20 +257,28 @@ Rules:
 
 ## 11. Proposal states
 
-Each AI proposal is handled with one of three states:
+Each imported AI proposal has one of four COMES-side lifecycle states:
 
+- `pending`
 - `accepted`
 - `held`
 - `rejected`
+
+These states are not part of the external AI JSON payload. COMES creates each imported proposal as `pending` after the full AI result passes validation.
+
+### pending
+The proposal has been imported but the human has not decided yet. `pending` must not be treated as `held`.
 
 ### accepted
 Immediately creates a task. No additional confirmation modal is shown in MVP.
 
 ### held
-Remains in the active AI Proposal tab.
+Remains in the active AI Proposal tab after an explicit human hold decision.
 
 ### rejected
 Removed from the active view but retained in date-based history.
+
+Only a human action transitions `pending` to `accepted`, `held`, or `rejected`.
 
 ## 12. Task conversion
 
@@ -339,9 +348,12 @@ If validation fails:
 
 If validation passes:
 - save the AI result;
+- create each imported proposal with COMES-side status `pending`;
 - automatically transition the related Decision Pack status to `AI結果取込済み`.
 
 ## 15. Canonical JSON Schema v0.3
+
+The proposal lifecycle clarification in Decision v0.4 does not change the external AI JSON shape, so the canonical JSON Schema remains v0.3.
 
 ```json
 {

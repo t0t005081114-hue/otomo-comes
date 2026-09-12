@@ -1,29 +1,33 @@
 # B-10 1on1構造化方式決定
 
-Status: Accepted
+Status: Accepted v1.1
 Decision ID: B-10
 
 ## 結論
 
-個人検証版では、1on1は **原文取得を自動化し、意味理解を伴う構造化はCOMES Coreで自動実行しない**。
+個人MVPでは、1on1原文はGoogle Driveを正本とし、**ChatGPTがDrive上の1on1原文を直接参照して構造化候補を生成し、人間が確認後に `one_on_one_insights` へ保存する**方式を採用する。
+
+COMES Core自身は、原文の意味理解・要約・人物判断を自動実行しない。
 
 MVPの基本フロー:
 
 ```text
 Google Meet / Drive
 ↓
-原文・メタデータ取得
+COMESがファイル・人物・日時メタデータを取得
 ↓
-人物・日時・ファイルIDを紐付け
+ChatGPTがDrive上の対象1on1原文を直接参照
 ↓
-COMES DBへ1on1 Logとして保存
+固定フォーマットで構造化候補を生成
 ↓
-Decision Packには「参照可能な1on1情報」として渡す
+人間が確認
 ↓
-ChatGPT AI上司が必要時に読んで判断
+確認済みの内容だけCOMESの one_on_one_insights に保存
+↓
+Decision Packは構造化済みinsightを参照
 ```
 
-これにより、個人検証版でLLM APIを使わずに成立させる。
+これにより、個人MVPではLLM APIを使わず、毎日のDecision Packへ原文全文を埋め込まずに1on1文脈を利用できる。
 
 ---
 
@@ -35,76 +39,101 @@ ChatGPT AI上司が必要時に読んで判断
 - 更新日時取得
 - 対象者候補の名寄せ
 - 実施日の取得
-- 原文取得または原文参照の保存
+- 原文参照情報の保存
 - 同一ファイル更新時の再取得判定
 - 未解決人物を `needs_confirmation` として保持
+- 人間が確認した構造化情報を `one_on_one_insights` に保存
 
 COMESは、原文だけから「本人のモチベーションが低い」等の人物判断を自動確定しない。
 
 ---
 
-## 2. COMESがMVPで自動化しないこと
+## 2. ChatGPTが個人MVPで行うこと
 
-以下はLLM APIなしでは誤判定リスクが高いため、Coreの必須処理にしない。
+ChatGPTは、対象の1on1原文をGoogle Driveから直接参照し、構造化候補を生成する。
 
-- 発言意図の意味分類
-- 感情推定
-- モチベーション判定
-- 成長・不安・不満の自動断定
-- 複数発言をまたいだ要約
-- 次回質問の自動生成
+構造化対象:
 
-ルールベースで高精度に抽出できる事実が将来確認できた場合のみ追加検討する。
+- 困っていること
+- うまくいっていること
+- 自信がついてきた仕事
+- 不安な仕事
+- 負荷に関する本人発言
+- 任せてほしい仕事
+- 支援してほしいこと
+- 前回からの変化
+- 継続課題
+- 次回確認事項
+
+原則:
+
+- 原文にない事実を補完しない
+- 感情・性格・モチベーションを断定しない
+- 不明な項目は空欄または要確認とする
+- 発言事実とAI要約を区別する
+- 人事評価を生成しない
 
 ---
 
 ## 3. `one_on_one_insights` の扱い
 
-B-02で定義した `one_on_one_insights` は残す。
+B-02で定義した `one_on_one_insights` を、個人MVPでの構造化情報の保存先とする。
 
-ただし個人MVPでは、以下のいずれかから生成する。
+保存元:
 
-1. マネージャーの手動登録
-2. ChatGPT AI上司の分析結果を人間が確認して保存
-3. 将来のAI Analysis Adapter
+1. ChatGPTがDrive原文から生成した構造化候補を人間が確認して保存
+2. 必要に応じてマネージャーが手動登録
+3. 将来はAI Analysis Adapter / OneOnOneAnalysisAdapterから候補生成
 
-ChatGPT側の分析結果を、確認なしで自動的にCOMES DBへ書き戻さない。
+重要:
+
+- ChatGPTの分析結果を確認なしでCOMES DBへ自動書き戻ししない
+- 人間が確認した内容だけ正式な構造化情報として保存する
+- AI生成由来であることを追跡可能にする
 
 ---
 
 ## 4. Decision Packへの渡し方
 
-毎日のDecision Packへ全1on1原文を無条件に入れない。
+毎日のDecision Packへ1on1原文全文は入れない。
 
 基本は以下を渡す。
 
 - 最新1on1実施日
 - 対象者
 - 参照先ID
-- 構造化済みinsightがあればその内容
-- 継続課題があればその内容
+- 確認済みの構造化insight
+- 継続課題
+- 次回確認事項
 - `needs_confirmation` 状態
 
-AI上司が判断に必要な場合のみ、最新原文または必要な履歴を参照できる設計とする。
+日次AI分析は、原則としてこの構造化済み情報を利用する。
+
+日次AI分析のたびに1on1原文を再読することは前提にしない。
 
 理由:
 
-- 判断パック肥大化防止
+- Decision Pack肥大化防止
 - 機微情報の露出最小化
-- 不要な文脈によるAI判断ノイズの抑制
+- 日次分析の再現性向上
+- 毎回の原文再読による判断揺れを減らす
 
 ---
 
 ## 5. 原文の保存方針
 
-原文そのものをSupabaseへ複製するか、Google Drive参照のみとするかはB-19「機微情報・ログの取り扱い」で最終確定する。
+B-19を正本とする。
 
-B-10では、1on1 Logが以下を保持できることだけを要求する。
+- 1on1原文の正本はGoogle Drive
+- COMES DBへ原文本文は保存しない
+- COMES DBには参照情報と確認済み構造化情報のみ保持する
+
+1on1 Logは最低限以下を保持する。
 
 - `source_file_id`
 - `source_file_name`
 - `source_modified_at`
-- `raw_text_ref` または同等の参照
+- `raw_text_ref` または同等のDrive参照
 
 ---
 
@@ -121,23 +150,14 @@ LLM API
 ↓
 構造化候補
 ↓
+人間確認
+↓
 COMES
 ```
 
-AIが生成した情報には出自を保持し、人間入力や観測事実と区別する。
+個人MVPの「ChatGPT + Drive直接参照」は検証用Harnessであり、公開版の必須構成にはしない。
 
-将来の構造化候補:
-
-- concern
-- success
-- confidence
-- anxiety
-- workload
-- delegation_request
-- support_request
-- change
-- ongoing_issue
-- next_check
+構造化項目の意味契約は公開版でも維持する。
 
 ---
 
@@ -150,16 +170,17 @@ MVPでは以下を行わない。
 - ChatGPT分析結果の無確認DB書き戻し
 - 毎日のDecision Packへ全原文を常時埋め込む
 - 名寄せが曖昧な1on1を推測で人物へ紐付ける
+- 日次AI分析の都度、全1on1原文を自動再読する
 
 ---
 
 ## Acceptance
 
-B-10は以下を満たしたため解決とする。
-
 - API課金なしで個人MVPが成立する
-- 原文取得と意味構造化が分離されている
+- Drive原文をChatGPTが直接参照して構造化候補を作れる設計である
+- 構造化候補は人間確認後のみ `one_on_one_insights` に保存される
 - COMES Coreが人物状態を勝手に断定しない
-- 1on1履歴をDecision Packから参照可能
-- 将来AI Analysis Adapterへ移行可能
+- 日次Decision Packは原文ではなく構造化済み情報を基本参照する
+- 1on1原文をCOMES DBへ複製しない
+- 将来AI Analysis Adapter / OneOnOneAnalysisAdapterへ移行可能
 - 機微情報を必要以上にDecision Packへ複製しない

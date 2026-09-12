@@ -1,6 +1,6 @@
 # B-12 Decision Pack v1 JSON Schema決定
 
-Status: Accepted
+Status: Accepted v1.1
 Decision ID: B-12
 
 ## 結論
@@ -8,6 +8,13 @@ Decision ID: B-12
 Decision PackはMarkdownではなく**構造化JSONを正本**とし、`schema_version = "1.0"` を持つ。
 
 人間向けMarkdown、Google Drive出力、将来のLLM API入力はこのJSONから生成する。
+
+B-24との根拠参照互換性を保つため、Evidence Refは以下の意味に統一する。
+
+- `source_type` = その根拠が**何の情報か**
+- `source_system` = その根拠が**どのシステム・入力元から来たか**
+
+`crm` や `drive` のようなシステム名を `source_type` に入れない。
 
 ## Top Level
 
@@ -185,20 +192,52 @@ AI上司 / 人間に判断してほしい論点。
 
 ```json
 {
-  "source_type": "crm",
-  "source_id": "...",
-  "source_label": "..."
+  "source_type": "work_item",
+  "source_system": "crm",
+  "source_id": "case_123",
+  "label": "A案件"
 }
 ```
 
-`source_type` 例:
+### source_type
 
-- `crm`
+`source_type` は情報の意味種類を表す。B-24と共通で次を基本とする。
+
+- `kpi_result`
+- `work_item`
+- `work_event`
+- `daily_work_log`
 - `one_on_one`
 - `manager_observation`
-- `work_event`
-- `kpi_result`
+- `bottleneck`
+- `delegation_candidate`
+- `decision_pack_note`
+
+### source_system
+
+`source_system` は取得元・生成元を表す文字列とする。会社ごとのAdapter追加を阻害しないよう固定enumにはしない。
+
+例:
+
+- `crm`
+- `drive`
+- `comes`
 - `manual`
+- `google_calendar`
+- `outlook`
+
+原則:
+
+- `source_type` に `crm` / `drive` 等を入れない。
+- `source_system` に `work_item` / `kpi_result` 等の情報種類を入れない。
+- `source_id` は、その `source_system` 内で追跡可能な識別子を使う。
+- `label` は人間が根拠を確認するための短い表示名とする。
+
+## B-24への受け渡し
+
+Decision PackのEvidence RefをAIへ渡す際、`source_type / source_system / source_id / label` を保持する。
+
+AIは根拠の意味種類を勝手に別種類へ変換しない。複数の根拠を統合して新たなCOMES候補を参照する場合のみ、`bottleneck` や `delegation_candidate` 等のCOMES側レコードを根拠として返してよい。
 
 ## 禁止事項
 
@@ -206,10 +245,9 @@ AI上司 / 人間に判断してほしい論点。
 - LLM向け自然文だけを正本にしない
 - 根拠不明の候補を確定事実として出さない
 - 欠損値を0へ変換しない
+- システム名と情報種類を同じフィールドに混在させない
 
 ## Acceptance
-
-B-12は以下を満たすため解決とする。
 
 - schema versionを定義
 - Top Levelを定義
@@ -218,3 +256,5 @@ B-12は以下を満たすため解決とする。
 - source statusを定義
 - evidence trackingを定義
 - MarkdownとJSON正本を分離
+- `source_type` と `source_system` の責務を分離
+- B-24へ根拠参照を変換なしで受け渡せる

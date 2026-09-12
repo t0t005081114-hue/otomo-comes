@@ -1,6 +1,6 @@
 # OTOMO COMES 最終監査 受け入れテスト追加 v0.1
 
-Status: Accepted
+Status: Accepted v1.1
 
 本書は `docs/acceptance-tests-v0.2.md` の追加BLOCKINGテストである。
 
@@ -70,6 +70,8 @@ B-33以降の最終監査で確定した仕様を対象とし、v0.2の既存テ
 - Receiptを作らない
 - 翌日は通常判定へ戻す
 - `home_item_deferrals` で当日状態を保持できる
+- 人物対象が明確な候補では `subject_person_id` を保持する
+- 同じ根拠でも異なる人物候補を独立して保留できる
 
 ---
 
@@ -97,6 +99,7 @@ Bottleneckは実解消時だけresolvedにする。
 `management_action_receipts` が最低限以下を保持できる。
 
 - organization / manager
+- subject_person_id nullable
 - action_kind
 - primary source_type / source_system / source_id
 - evidence_refs
@@ -114,7 +117,7 @@ Receiptは追記型である。
 
 **BLOCKING**
 
-fingerprint生成はB-36 v1.3準拠。
+fingerprint生成はB-36 v1.4準拠。
 
 - source_type / source_system / source_idだけを使用
 - `source_type|source_system|source_id` に正規化
@@ -133,7 +136,15 @@ Evidence Ref配列順やlabel変更だけでfingerprintが変わらない。
 
 **BLOCKING**
 
-- `action_kind + evidence_fingerprint` が同一で実施済みなら再掲しない
+人物対象あり:
+- `action_kind + subject_person_id + evidence_fingerprint`
+
+人物対象なし:
+- `action_kind + source_type + source_system + source_id + evidence_fingerprint`
+
+条件:
+- 同一比較キーで実施済みなら再掲しない
+- 同じ根拠集合でもsubject_person_idが異なれば相互抑制しない
 - 日付変更だけでは新候補扱いにしない
 - 新しいEvidence Ref追加でfingerprintが変われば新候補として再掲可能
 - fingerprint生成不能時は推測抑制しない
@@ -225,16 +236,30 @@ priority未設定候補へrisk / KPI / 人物属性等から推測priorityを付
 
 **BLOCKING**
 
-B-41 v1.1を満たす。
+B-41 v1.4を満たす。
 
 - `home_item_deferrals`
+- deferralの `subject_person_id` nullable
 - `management_action_receipts`
+- receiptの `subject_person_id` nullable
 - `evidence_refs`
 - `evidence_fingerprint`
 - B-33期限表示との整合
 - B-40単一カード投影との整合
 
 B-34のTask専用deferralテーブルを別物として二重実装しない。
+
+---
+
+## FA-15 HOME「タスクを見る」
+
+**BLOCKING**
+
+- 実在Task参照があるitemだけ `タスクを見る` を表示する
+- Task参照が無いCandidateへ表示のためだけにTaskを自動生成しない
+- Task無し候補でも `完了 / 保留` が成立する
+- item / card押下でCentered Modal等の詳細確認へ進める
+- HOMEへ新しい共通操作を増やさない
 
 ---
 

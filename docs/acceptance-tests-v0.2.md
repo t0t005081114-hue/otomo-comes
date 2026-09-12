@@ -163,7 +163,7 @@ AIが同じ根拠を引用する場合、これらを勝手に変更しない。
 
 **BLOCKING**
 
-B-24 v0.3準拠。
+B-24 Decision v0.4 / JSON Schema v0.3準拠。
 
 Top-level最低限:
 - schema_version
@@ -212,8 +212,10 @@ Top-level最低限:
 採用actionから最低限以下をタスクへ保持できる。
 
 - title / description
-- assignee / related people
-- due bucket / due date
+- assignee
+- related peopleを `work_item_related_people` に内部 `person_id` で保持
+- `due_bucket`
+- today / within_week の `due_date` を具体期限として `due_at` に保持
 - priority
 - recommended action
 - expected outcome
@@ -222,7 +224,11 @@ Top-level最低限:
 - source refs
 - AI-origin metadata
 
-AI内容とhuman notesは分離する。
+追加条件:
+- `related_person_names` だけを内部正本にしない
+- AI提案由来タスクでは `due_bucket` が必須
+- `not_urgent` は具体期限なしでも有効
+- AI内容とhuman notesは分離する
 
 ---
 

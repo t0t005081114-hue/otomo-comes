@@ -1,6 +1,6 @@
 # B-24 AI Analysis Result Schema
 
-Status: Accepted v0.4
+Status: Accepted v0.5
 Decision ID: B-24
 
 ## 1. Purpose
@@ -25,6 +25,8 @@ External AI
 Fixed JSON response
   ↓
 COMES JSON Schema validation
+  ↓
+COMES identity / referential validation
   ↓
 AI Proposal tab (`pending`)
   ↓
@@ -150,6 +152,8 @@ not_urgent  → 急ぎじゃない
 - `within_week` → `due_date` required
 - `not_urgent` → `due_date` optional
 
+`due_date` is a calendar date only. It must not be converted into an arbitrary time-of-day by the AI contract.
+
 ### 5.3 priority
 
 Allowed values:
@@ -158,7 +162,26 @@ Allowed values:
 - `medium`
 - `low`
 
-## 6. Person references
+## 6. Internal ID contract
+
+The following fields reference canonical COMES UUID primary keys and must use UUID format in the external AI JSON:
+
+- `decision_pack_id` → `decision_packs.id`
+- `assignee_person_id` → `people.id`
+- every value in `related_person_ids` → `people.id`
+- `delegate_to_person_id` → `people.id`
+
+The display-name fields exist only for human readability and external-AI handling. IDs are canonical.
+
+Import rules:
+- UUID syntax is checked by JSON Schema;
+- `decision_pack_id` must resolve to the Decision Pack being imported against;
+- all person IDs must resolve to existing `people` records;
+- all resolved people and the Decision Pack must belong to the same `organization_id` as the import context;
+- a missing, cross-organization, or unresolved internal ID causes import failure;
+- COMES must not create or guess an internal record to repair an invalid ID.
+
+## 7. Person references
 
 Required assignee fields:
 
@@ -172,14 +195,14 @@ Optional related-person fields:
 
 The internal ID is canonical. The display name exists for human readability and external-AI handling.
 
-## 7. Delegation rule
+## 8. Delegation rule
 
 If `action_type = delegate`, these fields are required:
 
 - `delegate_to_person_id`
 - `delegate_to_name`
 
-## 8. Follow-up rule
+## 9. Follow-up rule
 
 Fields:
 
@@ -188,7 +211,7 @@ Fields:
 
 If `follow_up_required = true`, `follow_up_date` is required.
 
-## 9. Optional action fields
+## 10. Optional action fields
 
 - `estimated_minutes`
 - `dependencies`
@@ -200,7 +223,7 @@ If `follow_up_required = true`, `follow_up_date` is required.
 
 `estimated_minutes` is optional. If omitted, the task remains valid and is excluded from time-capacity totals.
 
-## 10. source_refs
+## 11. source_refs
 
 Each action must contain at least one source reference.
 
@@ -215,7 +238,7 @@ The canonical meaning is shared with B-12.
 }
 ```
 
-### 10.1 source_type
+### 11.1 source_type
 
 `source_type` describes what kind of information the evidence is.
 
@@ -231,7 +254,7 @@ Allowed values:
 - `delegation_candidate`
 - `decision_pack_note`
 
-### 10.2 source_system
+### 11.2 source_system
 
 `source_system` describes where the evidence came from.
 
@@ -255,7 +278,7 @@ Rules:
 
 `decision_pack_note` must not be used for priority changes, exclusions, or edit history. Those belong to revision / audit history.
 
-## 11. Proposal states
+## 12. Proposal states
 
 Each imported AI proposal has one of four COMES-side lifecycle states:
 
@@ -280,7 +303,7 @@ Removed from the active view but retained in date-based history.
 
 Only a human action transitions `pending` to `accepted`, `held`, or `rejected`.
 
-## 12. Task conversion
+## 13. Task conversion
 
 When an action is accepted, COMES maps at least:
 
@@ -300,7 +323,7 @@ When an action is accepted, COMES maps at least:
 
 AI-provided content and human-authored notes remain visually and structurally separate.
 
-## 13. Daily capacity display
+## 14. Daily capacity display
 
 `estimated_minutes` may be used to calculate daily workload feasibility.
 
@@ -311,24 +334,37 @@ Normal work capacity:
 
 If estimated task time exceeds 100% of available work time, COMES displays a warning only. It does not automatically remove, reschedule, or delegate tasks.
 
-## 14. Validation behavior
+## 15. Validation behavior
 
 COMES validates pasted external-AI output without using an LLM.
 
-### 14.1 JSON Schema validation
+### 15.1 JSON Schema validation
 
 Includes at least:
 - valid JSON syntax;
 - required fields;
 - enum validity;
 - date/date-time formats;
+- UUID format for canonical COMES IDs;
 - conditional required fields;
 - non-empty `source_refs`;
 - unknown-property rejection where defined.
 
-### 14.2 Referential validation
+### 15.2 Identity validation
 
-After JSON Schema validation passes, COMES must verify that every `source_ref` resolves to either:
+After JSON Schema validation passes, COMES validates canonical internal IDs:
+
+- `decision_pack_id` exists and is the target Decision Pack;
+- `assignee_person_id` exists;
+- every `related_person_ids` value exists;
+- `delegate_to_person_id` exists when supplied;
+- all of those records belong to the active organization.
+
+Any unresolved or cross-organization internal ID causes import failure.
+
+### 15.3 Evidence referential validation
+
+COMES must verify that every `source_ref` resolves to either:
 
 1. an Evidence Ref contained in the referenced Decision Pack / revision; or
 2. an existing COMES record that is valid as an evidence source.
@@ -340,26 +376,26 @@ Rules:
 - COMES does not create missing evidence records automatically;
 - COMES does not ask an LLM to repair an unresolved reference.
 
-If validation fails:
+If any validation fails:
 - do not save the result;
 - show what is invalid;
 - do not silently repair it;
 - do not use an LLM to reinterpret or repair it.
 
-If validation passes:
+If all validation passes:
 - save the AI result;
 - create each imported proposal with COMES-side status `pending`;
 - automatically transition the related Decision Pack status to `AI結果取込済み`.
 
-## 15. Canonical JSON Schema v0.3
+## 16. Canonical JSON Schema v0.4
 
-The proposal lifecycle clarification in Decision v0.4 does not change the external AI JSON shape, so the canonical JSON Schema remains v0.3.
+Decision v0.5 tightens canonical COMES IDs to UUID format, so the external AI JSON Schema is bumped to v0.4.
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://otomo-lab.com/schemas/comes-ai-analysis-result-v0.3.json",
-  "title": "OTOMO COMES AI Analysis Result v0.3",
+  "$id": "https://otomo-lab.com/schemas/comes-ai-analysis-result-v0.4.json",
+  "title": "OTOMO COMES AI Analysis Result v0.4",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -373,9 +409,9 @@ The proposal lifecycle clarification in Decision v0.4 does not change the extern
     "actions"
   ],
   "properties": {
-    "schema_version": { "type": "string", "const": "0.3" },
+    "schema_version": { "type": "string", "const": "0.4" },
     "date": { "type": "string", "format": "date" },
-    "decision_pack_id": { "type": "string", "minLength": 1 },
+    "decision_pack_id": { "type": "string", "format": "uuid" },
     "generated_at": { "type": "string", "format": "date-time" },
     "management_focus_type": {
       "type": "string",
@@ -429,11 +465,11 @@ The proposal lifecycle clarification in Decision v0.4 does not change the extern
         "title": { "type": "string", "minLength": 1 },
         "description": { "type": "string", "minLength": 1 },
         "reason": { "type": "string", "minLength": 1 },
-        "assignee_person_id": { "type": "string", "minLength": 1 },
+        "assignee_person_id": { "type": "string", "format": "uuid" },
         "assignee_name": { "type": "string", "minLength": 1 },
         "related_person_ids": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
+          "items": { "type": "string", "format": "uuid" },
           "uniqueItems": true
         },
         "related_person_names": {
@@ -462,7 +498,7 @@ The proposal lifecycle clarification in Decision v0.4 does not change the extern
         "risk_if_ignored": { "type": "string", "minLength": 1 },
         "follow_up_required": { "type": "boolean" },
         "follow_up_date": { "type": "string", "format": "date" },
-        "delegate_to_person_id": { "type": "string", "minLength": 1 },
+        "delegate_to_person_id": { "type": "string", "format": "uuid" },
         "delegate_to_name": { "type": "string", "minLength": 1 },
         "source_refs": {
           "type": "array",
@@ -522,13 +558,13 @@ The proposal lifecycle clarification in Decision v0.4 does not change the extern
 }
 ```
 
-## 16. Accepted example
+## 17. Accepted example
 
 ```json
 {
-  "schema_version": "0.3",
+  "schema_version": "0.4",
   "date": "2026-09-13",
-  "decision_pack_id": "dp_20260912_001",
+  "decision_pack_id": "7f2d06f8-5230-4b3d-ae9e-8975350ef7bf",
   "generated_at": "2026-09-12T20:15:00+09:00",
   "management_focus_type": "team_follow_focus",
   "management_focus_summary": "明日は新規営業より、停滞案件の解消とメンバーフォローを優先する。",
@@ -539,9 +575,9 @@ The proposal lifecycle clarification in Decision v0.4 does not change the extern
       "title": "山田さんのA案件の停滞理由を確認する",
       "description": "A案件が2営業日進捗していないため、現状と次のアクションを本人に確認する。",
       "reason": "案件が停滞状態にあり、次のアクションが未確定のため。",
-      "assignee_person_id": "person_manager_001",
+      "assignee_person_id": "97295b25-28b2-4e70-b469-0ab7be46cff1",
       "assignee_name": "マネージャー",
-      "related_person_ids": ["person_yamada_001"],
+      "related_person_ids": ["664ae08d-4231-4eb1-92ed-5fcfb654d4ad"],
       "related_person_names": ["山田太郎"],
       "due_bucket": "today",
       "due_date": "2026-09-13",
@@ -565,7 +601,7 @@ The proposal lifecycle clarification in Decision v0.4 does not change the extern
 }
 ```
 
-## 17. Boundary
+## 18. Boundary
 
 This schema describes AI output and task-conversion input only.
 

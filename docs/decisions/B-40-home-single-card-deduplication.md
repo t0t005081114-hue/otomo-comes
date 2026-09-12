@@ -1,6 +1,6 @@
 # B-40 HOME単一カード表示・重複排除契約
 
-Status: Accepted
+Status: Accepted v1.1
 Decision ID: B-40
 
 ## 結論
@@ -19,7 +19,11 @@ AI Proposal由来の対象は、B-24の `action_type` と対象ドメインを�
 - `delegate` / Delegation Candidate → `手放す`
 - `praise` / Praise Candidate → `褒める`
 - `bottleneck` / Bottleneck → `詰まりを取る`
-- `follow_up` / `one_on_one` / `systemization` は、その内容がTask化された後の主目的に従って1カードへ割り当てる
+- `follow_up` → `自分が動く`
+- `one_on_one` → `自分が動く`
+- `systemization` → `自分が動く`
+
+MVPでは `follow_up / one_on_one / systemization` のために新しいHOMEカードを増やさない。これらはマネージャー本人が実行するTaskとして `自分が動く` に集約する。
 
 同じaccepted AI ProposalからTaskが作成されても、HOMEではTaskとして `自分が動く` に重複表示せず、元の `action_type` に対応する主カードを優先する。
 
@@ -53,6 +57,9 @@ Task画面では通常どおりTaskとして存在してよい。
 - `delegate` Proposal採用 → Task作成済みでもHOMEは `手放す` のみ
 - `bottleneck` Proposal採用 → Task作成済みでもHOMEは `詰まりを取る` のみ
 - `priority_task` Proposal採用 → `自分が動く`
+- `follow_up` Proposal採用 → `自分が動く`
+- `one_on_one` Proposal採用 → `自分が動く`
+- `systemization` Proposal採用 → `自分が動く`
 
 ## HOME操作との関係
 
@@ -66,6 +73,7 @@ B-35 / B-36 / B-39の操作は、HOME上で採用された主カードの意味�
 
 - 同じaccepted AI ProposalをTaskと候補の両方としてHOMEへ二重表示する
 - 同じEvidence Refを複数カードへ機械的に複製する
+- `follow_up / one_on_one / systemization` の分類を実装者判断へ残す
 - 表示文言の一致だけで重複排除する
 - Task画面から元Taskを削除して重複を防ぐ
 
@@ -73,6 +81,6 @@ B-35 / B-36 / B-39の操作は、HOME上で採用された主カードの意味�
 
 - 同一対象がHOME上段で1件だけ表示される
 - accepted AI Proposal由来Taskが主カードと `自分が動く` に二重表示されない
-- `action_type` に応じた主カード割当が一貫する
+- 全action_typeのHOME主カード割当が機械的に決定できる
 - HOMEの完了 / 保留操作が対象ごとに1箇所へ集約される
 - Task画面ではTask自体を保持できる

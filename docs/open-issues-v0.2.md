@@ -73,7 +73,7 @@ B-03の通信契約はAccepted済み。
 - B-06 停滞時刻基準
 - B-07 委譲評価入力
 - B-08 Google認証
-- B-10 1on1構造化
+- B-10 1on1構造化 v1.2
 - B-11 Manager Observation入力
 - B-12 Decision Pack Schema
 - B-13 data status / confidence
@@ -85,10 +85,10 @@ B-03の通信契約はAccepted済み。
 - B-21 UI詳細
 - B-22 MVP成功条件
 - B-23 Decision Pack Editing
-- B-24 AI Analysis Result Schema v0.3
+- B-24 AI Analysis Result Decision v0.5 / JSON Schema v0.4
 - B-25 AI責任分界
 - B-26〜B-31 HOME / UI整合
-- B-32 DBスキーマ整合拡張
+- B-32 DBスキーマ整合拡張 v1.3
 
 ---
 

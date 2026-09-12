@@ -1,6 +1,6 @@
 # B-24 AI Analysis Result Schema
 
-Status: Accepted v0.2
+Status: Accepted v0.3
 Decision ID: B-24
 
 ## 1. Purpose
@@ -50,6 +50,7 @@ Required fields:
 - `generated_at`
 - `management_focus_type`
 - `management_focus_summary`
+- `kpi_allocation_comment`
 - `actions`
 
 ### 3.1 management_focus_type
@@ -69,7 +70,31 @@ Allowed values:
 
 A short human-readable sentence explaining how the playing manager should operate that day.
 
+This is used for the HOME top `今日のモード` line and the task screen management focus.
+
 The user does not manually edit this value in MVP.
+
+### 3.3 kpi_allocation_comment
+
+A short human-readable comment for the HOME lower block `今月の進捗 + AIコメント`.
+
+Purpose:
+- interpret the current self / organization KPI situation;
+- explain how the manager should allocate attention today;
+- avoid merely repeating KPI numbers;
+- keep this separate from the top-level daily management focus summary.
+
+Rules:
+- base the comment only on KPI definitions, targets, actuals, trends, scope, and other explicit Decision Pack facts;
+- do not infer KPI meaning that was not supplied;
+- do not infer personality or motivation;
+- keep it concise enough for the HOME cockpit.
+
+Example:
+
+```text
+自分KPIは計画線上だがチームKPIに遅れがあるため、今日は個人数字の上積みより停滞案件のフォローへ時間を配分する。
+```
 
 ## 4. Action types
 
@@ -191,7 +216,7 @@ The canonical meaning is shared with B-12.
 
 ### 10.1 source_type
 
-`source_type` describes **what kind of information the evidence is**.
+`source_type` describes what kind of information the evidence is.
 
 Allowed values:
 
@@ -205,21 +230,9 @@ Allowed values:
 - `delegation_candidate`
 - `decision_pack_note`
 
-Definitions:
-
-- `kpi_result`: KPI actuals, target gaps, and progress
-- `work_item`: a concrete task, case, or piece of work
-- `work_event`: rework, overdue, status change, hand-back, etc.
-- `daily_work_log`: daily aggregated operating facts
-- `one_on_one`: structured 1on1 summary / insight reference
-- `manager_observation`: manager-recorded observation fact
-- `bottleneck`: COMES-held bottleneck candidate / record
-- `delegation_candidate`: COMES-held delegation candidate / evidence set
-- `decision_pack_note`: human-added supplemental information in the Decision Pack
-
 ### 10.2 source_system
 
-`source_system` describes **where the evidence came from**.
+`source_system` describes where the evidence came from.
 
 It is a required non-empty string and is intentionally not a fixed enum so company-specific Adapters can be added without changing the Core schema.
 
@@ -233,12 +246,11 @@ Examples:
 - `outlook`
 
 Rules:
-
-- System names such as `crm`, `drive`, or `calendar` must not be used as `source_type`.
-- Information kinds such as `work_item` or `kpi_result` must not be used as `source_system`.
-- The AI should preserve `source_type / source_system / source_id / label` from the Decision Pack whenever it is citing the same evidence.
-- The AI must not invent a new `source_system` or silently reinterpret the origin.
-- If the AI cites a COMES-generated candidate such as a bottleneck record, `source_system = "comes"` is appropriate.
+- system names such as `crm`, `drive`, or `calendar` must not be used as `source_type`;
+- information kinds such as `work_item` or `kpi_result` must not be used as `source_system`;
+- the AI should preserve `source_type / source_system / source_id / label` from the Decision Pack whenever it is citing the same evidence;
+- the AI must not invent a new `source_system` or silently reinterpret the origin;
+- if the AI cites a COMES-generated candidate such as a bottleneck record, `source_system = "comes"` is appropriate.
 
 `decision_pack_note` must not be used for priority changes, exclusions, or edit history. Those belong to revision / audit history.
 
@@ -284,51 +296,58 @@ AI-provided content and human-authored notes remain visually and structurally se
 `estimated_minutes` may be used to calculate daily workload feasibility.
 
 Normal work capacity:
-- default daily work time = 8 hours
-- user can change the persistent normal work time
-- user can override only today's work time
-
-Capacity display may show:
-
-```text
-稼働可能時間
-今日タスク見積合計
-残り余力 / 超過時間
-```
+- default daily work time = 8 hours;
+- user can change the persistent normal work time;
+- user can override only today's work time.
 
 If estimated task time exceeds 100% of available work time, COMES displays a warning only. It does not automatically remove, reschedule, or delegate tasks.
 
-## 14. JSON Schema validation behavior
+## 14. Validation behavior
 
 COMES validates pasted external-AI output without using an LLM.
 
-Validation includes at least:
+### 14.1 JSON Schema validation
 
-- valid JSON syntax
-- required fields
-- enum validity
-- date/date-time formats
-- conditional required fields
-- non-empty `source_refs`
-- unknown-property rejection where defined
+Includes at least:
+- valid JSON syntax;
+- required fields;
+- enum validity;
+- date/date-time formats;
+- conditional required fields;
+- non-empty `source_refs`;
+- unknown-property rejection where defined.
+
+### 14.2 Referential validation
+
+After JSON Schema validation passes, COMES must verify that every `source_ref` resolves to either:
+
+1. an Evidence Ref contained in the referenced Decision Pack / revision; or
+2. an existing COMES record that is valid as an evidence source.
+
+Rules:
+- matching uses at least `source_type + source_system + source_id`;
+- `label` is display text and must not be the canonical lookup key;
+- an unresolved `source_ref` causes import validation failure;
+- COMES does not create missing evidence records automatically;
+- COMES does not ask an LLM to repair an unresolved reference.
 
 If validation fails:
-- do not save the result
-- show what is invalid
-- do not silently repair it
-- do not use an LLM to reinterpret or repair it
+- do not save the result;
+- show what is invalid;
+- do not silently repair it;
+- do not use an LLM to reinterpret or repair it.
 
 If validation passes:
-- save the AI result
-- automatically transition the related Decision Pack status to `AI結果取込済み`
+- save the AI result;
+- automatically transition the related Decision Pack status to `AI結果取込済み`.
 
-## 15. Canonical JSON Schema v0.2
+## 15. Canonical JSON Schema v0.3
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://otomo-lab.com/schemas/comes-ai-analysis-result-v0.2.json",
-  "title": "OTOMO COMES AI Analysis Result v0.2",
+  "$id": "https://otomo-lab.com/schemas/comes-ai-analysis-result-v0.3.json",
+  "title": "OTOMO COMES AI Analysis Result v0.3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -338,25 +357,14 @@ If validation passes:
     "generated_at",
     "management_focus_type",
     "management_focus_summary",
+    "kpi_allocation_comment",
     "actions"
   ],
   "properties": {
-    "schema_version": {
-      "type": "string",
-      "const": "0.2"
-    },
-    "date": {
-      "type": "string",
-      "format": "date"
-    },
-    "decision_pack_id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "generated_at": {
-      "type": "string",
-      "format": "date-time"
-    },
+    "schema_version": { "type": "string", "const": "0.3" },
+    "date": { "type": "string", "format": "date" },
+    "decision_pack_id": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "format": "date-time" },
     "management_focus_type": {
       "type": "string",
       "enum": [
@@ -368,15 +376,11 @@ If validation passes:
         "mixed_focus"
       ]
     },
-    "management_focus_summary": {
-      "type": "string",
-      "minLength": 1
-    },
+    "management_focus_summary": { "type": "string", "minLength": 1 },
+    "kpi_allocation_comment": { "type": "string", "minLength": 1 },
     "actions": {
       "type": "array",
-      "items": {
-        "$ref": "#/$defs/action"
-      }
+      "items": { "$ref": "#/$defs/action" }
     }
   },
   "$defs": {
@@ -457,29 +461,21 @@ If validation passes:
       "allOf": [
         {
           "if": {
-            "properties": {
-              "due_bucket": { "enum": ["today", "within_week"] }
-            },
+            "properties": { "due_bucket": { "enum": ["today", "within_week"] } },
             "required": ["due_bucket"]
           },
           "then": { "required": ["due_date"] }
         },
         {
           "if": {
-            "properties": {
-              "action_type": { "const": "delegate" }
-            },
+            "properties": { "action_type": { "const": "delegate" } },
             "required": ["action_type"]
           },
-          "then": {
-            "required": ["delegate_to_person_id", "delegate_to_name"]
-          }
+          "then": { "required": ["delegate_to_person_id", "delegate_to_name"] }
         },
         {
           "if": {
-            "properties": {
-              "follow_up_required": { "const": true }
-            },
+            "properties": { "follow_up_required": { "const": true } },
             "required": ["follow_up_required"]
           },
           "then": { "required": ["follow_up_date"] }
@@ -489,12 +485,7 @@ If validation passes:
     "source_ref": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "source_type",
-        "source_system",
-        "source_id",
-        "label"
-      ],
+      "required": ["source_type", "source_system", "source_id", "label"],
       "properties": {
         "source_type": {
           "type": "string",
@@ -510,18 +501,9 @@ If validation passes:
             "decision_pack_note"
           ]
         },
-        "source_system": {
-          "type": "string",
-          "minLength": 1
-        },
-        "source_id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1
-        }
+        "source_system": { "type": "string", "minLength": 1 },
+        "source_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 }
       }
     }
   }
@@ -532,12 +514,13 @@ If validation passes:
 
 ```json
 {
-  "schema_version": "0.2",
+  "schema_version": "0.3",
   "date": "2026-09-13",
   "decision_pack_id": "dp_20260912_001",
   "generated_at": "2026-09-12T20:15:00+09:00",
   "management_focus_type": "team_follow_focus",
   "management_focus_summary": "明日は新規営業より、停滞案件の解消とメンバーフォローを優先する。",
+  "kpi_allocation_comment": "自分KPIは計画線上だがチームKPIに遅れがあるため、今日は個人数字の上積みより停滞案件のフォローへ時間を配分する。",
   "actions": [
     {
       "action_type": "follow_up",
@@ -575,10 +558,10 @@ If validation passes:
 This schema describes AI output and task-conversion input only.
 
 It does not change:
-- the canonical Decision Pack role defined by B-12
-- original CRM / 1on1 / observation records
-- the rule that human final judgment remains authoritative
-- the rule that COMES must not infer personality or motivation scores
-- the rule that evidence and human-added supplements remain distinguishable
+- the canonical Decision Pack role defined by B-12;
+- original CRM / 1on1 / observation records;
+- the rule that human final judgment remains authoritative;
+- the rule that COMES must not infer personality or motivation scores;
+- the rule that evidence and human-added supplements remain distinguishable.
 
 The source reference semantics in B-12 and B-24 are intentionally aligned so the AI can preserve evidence references without inventing a conversion rule.

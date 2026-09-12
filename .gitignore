@@ -1,0 +1,31 @@
+# Secrets — B-01 / B-08 / B-19: never commit tokens or keys.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+service-account*.json
+credentials*.json
+client_secret*.json
+
+# Dependencies / build output
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Test artifacts
+playwright-report/
+test-results/
+blob-report/
+
+# Local tooling
+.claude/settings.local.json
+.vercel/
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

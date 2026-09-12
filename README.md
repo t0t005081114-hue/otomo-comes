@@ -39,3 +39,18 @@ Core / UI / AI契約の実装は開始可能。
 - CRM Adapter本実装前にB-04を解決する
 - Meet / Drive取込Adapter本実装前にB-09を解決する
 - B-04 / B-09を推測で実装しない
+
+## Development harness
+
+実装を開始する前に読む。いずれも正本ではなく、上記仕様・Decisionに従属する。
+
+- `CLAUDE.md` … この repo の最上位開発ルール・禁止事項・エスカレーション条件
+- `docs/PHASE_WORKFLOW.md` … Phaseの標準ループと記録項目
+- `docs/DEVELOPMENT_STANDARDS.md` … architecture / TypeScript / DB / security / AI境界 / testing の実装標準
+- `docs/DECISIONS_AND_FAILURES.md` … 実装中に判明した矛盾・失敗・不採用設計の記録
+- `docs/phases/` … Phaseごとのscope・acceptance・検証結果
+- `.claude/rules/` … 対象ファイルを触ったときだけ読み込まれる実装ルール
+- `.claude/hooks/harness-guard.mjs` … secret混入・機微データログ出力・破壊的操作・正本書き換えのブロック
+
+アプリ本体（Next.js / migration / Adapter）は未実装。検証コマンド
+（`npm run lint` / `typecheck` / `test` / `build`）はPhase 1のscaffoldで作成する。

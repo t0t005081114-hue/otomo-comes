@@ -1,13 +1,15 @@
 # B-15 Google Drive Decision Pack 出力仕様
 
-Status: Accepted
+Status: Accepted v1.1
 Decision ID: B-15
 
 ## 結論
 
-Google Drive への出力は **個人検証用Harness** として扱い、COMES Core の責務には含めない。
+Google Drive への出力は **個人検証用の補助Harness** として残し、COMES Core の責務には含めない。
 
 正本は Supabase PostgreSQL 上の `decision_packs.payload`（Decision Pack JSON）であり、Drive上のMarkdownはその派生物とする。
+
+Drive出力は、日次AI分析の必須経路ではない。人間確認・外部参照・検証用途の補助手段として扱う。
 
 ---
 
@@ -49,7 +51,7 @@ Markdownを採用する。
 理由:
 
 - 人間がそのまま読める
-- ChatGPTに読み込ませやすい
+- 外部AIや補助ツールへ必要時に渡しやすい
 - JSON正本と表示用を分離できる
 - Google Docs固有フォーマットへ依存しない
 
@@ -75,9 +77,9 @@ OTOMO_COMES_DecisionPack_2026-09-12.md
 
 目的:
 
-- ChatGPT Scheduled Taskから当日分を特定しやすくする
-- 日付を明示する
-- 前日分の誤利用を防ぐ
+- 日付単位で対象Packを特定しやすくする
+- 人間が確認しやすくする
+- 前日分との混同を防ぐ
 
 ---
 
@@ -139,11 +141,23 @@ Markdownでは以下のように表示する。
 
 ---
 
-## ChatGPT側との境界
+## AI分析との境界
 
-Drive出力はChatGPT Scheduled Task向けの受け渡し手段にすぎない。
+日次AI分析の正規フローはB-24 / B-25を正本とする。
 
-将来の公開版では以下へ置換可能とする。
+```text
+Decision Pack
+→ COMESでAI用プロンプト生成
+→ 外部AI
+→ B-24準拠JSON
+→ COMESへ取込
+```
+
+Drive出力はこの経路の必須依存ではない。
+
+必要時に人間が内容確認・共有・検証するための補助Harnessとして残す。
+
+将来の公開版では以下のように置換・省略可能とする。
 
 ```text
 Decision Pack JSON
@@ -159,9 +173,10 @@ Drive依存をCoreへ持ち込まない。
 ## Acceptance
 
 - Decision Pack JSONが正本である
-- Drive出力は派生物である
+- Drive出力は補助Harness / 派生物である
+- 日次AI分析の必須経路にしない
 - 日付単位で一意に特定できる
 - 同日再生成でDriveファイルが増殖しない
 - DB上のrevision履歴は保持される
-- ChatGPTから当日分を見つけやすい
+- 人間が外部で確認・共有しやすい
 - Drive障害がCore成功を無効化しない

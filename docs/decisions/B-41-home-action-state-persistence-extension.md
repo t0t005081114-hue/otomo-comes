@@ -1,6 +1,6 @@
 # B-41 HOME操作状態のDB保存拡張
 
-Status: Accepted v1.4
+Status: Accepted v1.5
 Decision ID: B-41
 
 ## 1. 目的
@@ -29,11 +29,22 @@ B-39 v1.1の全カード共通 `保留` を保存するため、`home_item_defer
 - `created_by_user_id` uuid FK -> profiles.user_id
 - `created_at` timestamptz
 
-Unique候補:
+Unique:
 
 ```text
-(organization_id, manager_person_id, home_card_type, subject_person_id, source_type, source_system, source_id, defer_date)
+UNIQUE NULLS NOT DISTINCT (
+  organization_id,
+  manager_person_id,
+  home_card_type,
+  subject_person_id,
+  source_type,
+  source_system,
+  source_id,
+  defer_date
+)
 ```
+
+`subject_person_id = null` のitemでも同一日・同一対象の重複deferをDBで防げるよう、PostgreSQLの `NULLS NOT DISTINCT` を使用する。
 
 原則:
 - 保留は当日HOME表示だけに効く。
@@ -166,8 +177,8 @@ Task単体完了から元ドメイン成果へは自動昇格しない。
 
 競合時:
 
-1. B-41 v1.4
-2. B-45 / B-44 / B-43 / B-42 / B-40 v1.1 / B-39 v1.1 / B-37 v1.2 / B-36 v1.4 / B-35 / B-34 / B-33 v1.1
+1. B-41 v1.5
+2. B-46 / B-45 / B-44 / B-43 / B-42 / B-40 v1.1 / B-39 v1.1 / B-37 v1.2 / B-36 v1.4 / B-35 / B-34 / B-33 v1.1
 3. B-32 v1.3
 4. B-02
 
@@ -178,6 +189,7 @@ Task単体完了から元ドメイン成果へは自動昇格しない。
 - HOME保留を4カード共通で永続化できる
 - HOME保留とTask `waiting` を分離できる
 - 同じ根拠でも異なる人物候補を独立して保留できる
+- `subject_person_id = null` のdeferもDB unique制約で重複防止できる
 - 実施済み管理行動を追記履歴として保存できる
 - 人物対象を `subject_person_id` で区別できる
 - B-36 v1.4のcanonical evidence fingerprintをDB上で保持できる

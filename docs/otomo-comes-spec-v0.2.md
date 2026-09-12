@@ -78,12 +78,13 @@ Coreへ特定ベンダー固有構造を持ち込まない。
 
 正本DBはSupabase PostgreSQL。
 
-基礎スキーマはB-02、後発整合拡張はB-32 v1.1を正本とする。
+基礎スキーマはB-02、後発整合拡張はB-32 v1.2を正本とする。
 
 主要概念:
 - Person / Role / Reporting Relation
 - Goal / KPI
 - Work / Task / Work Event
+- WorkItemRelatedPeople
 - Daily Work Log
 - OneOnOneLog / OneOnOneInsight
 - ManagerObservation
@@ -259,7 +260,7 @@ Human Adjustment:
 - AI投入済み
 - AI結果取込済み
 
-DBではB-32 v1.1の `workflow_status` で保持する。
+DBではB-32 v1.2の `workflow_status` で保持する。
 
 ---
 
@@ -285,13 +286,13 @@ Scheduled Taskを必須経路にしない。
 
 当日のHOMEは、翌朝時点でCOMESへ取込済みの最新AI分析結果を基準として固定する。
 
-日付ごとの固定結果はB-32 v1.1の `home_daily_ai_baselines` で保持し、日中に新しいAI結果を取り込んでも同日の基準を自動差し替えしない。
+日付ごとの固定結果はB-32 v1.2の `home_daily_ai_baselines` で保持し、日中に新しいAI結果を取り込んでも同日の基準を自動差し替えしない。
 
 ---
 
 ## 13. AI Analysis Result
 
-B-24 v0.3を正本とする。
+Decision契約はB-24 v0.4、外部AI JSON Schemaはv0.3を正本とする。
 
 Top-level必須:
 - schema_version
@@ -364,7 +365,13 @@ HOMEクイック操作:
 - レビュー
 - 仕組み化
 
-AI採用actionはB-32のtask origin metadataを保持してタスク化する。
+AI採用actionはB-32 v1.2のtask origin metadataを保持してタスク化する。
+
+AI提案由来タスクでは:
+- `due_bucket` を保持する
+- `today / within_week` の `due_date` は具体期限として `due_at` へ保存する
+- `related_person_ids` は `work_item_related_people` へ内部 `person_id` で保存する
+- `related_person_names` は表示補助であり正本IDにはしない
 
 AI内容と人間メモは分離する。
 

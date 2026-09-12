@@ -1,6 +1,6 @@
 # B-41 HOME操作状態のDB保存拡張
 
-Status: Accepted v1.1
+Status: Accepted v1.2
 Decision ID: B-41
 
 ## 1. 目的
@@ -44,7 +44,7 @@ Unique:
 
 ## 3. Management Action Receipt
 
-B-35 / B-36 v1.2 / B-37 v1.1の実施済み行動を保存するため、`management_action_receipts` を追加する。
+B-35 / B-36 v1.3 / B-37 v1.1の実施済み行動を保存するため、`management_action_receipts` を追加する。
 
 ### management_action_receipts
 
@@ -68,7 +68,7 @@ B-35 / B-36 v1.2 / B-37 v1.1の実施済み行動を保存するため、`manage
 - Receiptは追記型。
 - `source_type / source_system / source_id` は主参照先を表す。
 - `evidence_refs` は実施判断に使ったEvidence Ref集合を保持する。
-- `evidence_fingerprint` は、Evidence Ref集合の `source_type / source_system / source_id` を順序正規化して決定的に生成する。
+- `evidence_fingerprint` はB-36 v1.3の正規化手順で生成する。
 - labelはfingerprintへ含めない。
 - 元ドメイン状態は必要な場合のみ別途更新する。
 - Praise実施で人物/KPI状態を変更しない。
@@ -132,6 +132,10 @@ accepted AI Proposal由来Taskは `origin_ai_proposal_id` と `ai_proposals.acti
 
 Task画面では元Taskを保持する。
 
+B-42に従い、HOME側でドメイン行動を完了した場合は、同じaccepted AI ProposalのBacking Taskがあれば同一transactionで完了する。
+
+Task単体完了から元ドメイン成果へは自動昇格しない。
+
 ---
 
 ## 7. Current State / History分類
@@ -150,8 +154,8 @@ Task画面では元Taskを保持する。
 
 競合時:
 
-1. B-41 v1.1
-2. B-40 v1.1 / B-39 / B-37 v1.1 / B-36 v1.2 / B-35 / B-34 / B-33 v1.1
+1. B-41 v1.2
+2. B-45 / B-44 / B-43 / B-42 / B-40 v1.1 / B-39 / B-37 v1.1 / B-36 v1.3 / B-35 / B-34 / B-33 v1.1
 3. B-32 v1.3
 4. B-02
 
@@ -162,9 +166,10 @@ Task画面では元Taskを保持する。
 - HOME保留を4カード共通で永続化できる
 - HOME保留とTask `waiting` を分離できる
 - 実施済み管理行動を追記履歴として保存できる
-- 複数Evidence Refを含む再掲抑制キーをDB上で保持できる
+- B-36 v1.3のcanonical evidence fingerprintをDB上で保持できる
 - Evidence Ref順序差で再掲抑制が不安定にならない
 - 同一完了操作の二重実行を防止できる
 - 期限超過を表示上だけtodayへ昇格できる
 - accepted AI Proposal由来TaskをHOMEで二重表示しない
+- HOMEドメイン完了時にBacking Taskを原子的に同期できる
 - B-02/B-32の正本モデルを破壊せず後発HOME契約を実装できる

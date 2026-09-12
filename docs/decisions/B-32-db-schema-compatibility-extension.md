@@ -1,6 +1,6 @@
 # B-32 DBスキーマ整合拡張
 
-Status: Accepted v1.2
+Status: Accepted v1.3
 Decision ID: B-32
 
 ## 1. 目的
@@ -31,7 +31,7 @@ B-23および正式仕様v0.2で定義したDecision Pack状態をDBで保持す
 - 人間が確認済みにした時点で `confirmed` とする。
 - 確認後にDecision Packを編集した場合は新しいrevisionを作り、当該revisionは `drafting` に戻す。
 - AI用Promptをコピーして外部AIへ投入する操作で `ai_submitted` とする。
-- B-24準拠AI結果がSchema ValidationとReferential Validationを通過して保存された時点で `ai_result_imported` とする。
+- B-24準拠AI結果がSchema Validation / Identity Validation / Evidence Referential Validationを通過して保存された時点で `ai_result_imported` とする。
 - HOMEではこの状態を表示するだけで、状態変更CTAは持たない。
 
 ---
@@ -79,7 +79,7 @@ B-24準拠のAI分析結果を保持するため `ai_analysis_results` を追加
 - `created_at` timestamptz
 
 原則:
-- B-24 JSON Schema validationとReferential Validationを通過した結果だけ保存する。
+- B-24 JSON Schema validation / Identity Validation / Evidence Referential Validationを通過した結果だけ保存する。
 - 同日再取込時も旧結果を削除せず履歴保持する。
 - `is_current_for_date` は「最新取込結果」を示す補助フラグであり、HOMEでその日に固定利用する基準結果とは別概念とする。
 
@@ -149,6 +149,7 @@ B-02 `work_items` に以下を追加する。
 - `origin_type` enum(manual, ai_proposal, imported) default manual
 - `origin_ai_proposal_id` uuid nullable FK -> ai_proposals.id
 - `due_bucket` enum(today, within_week, not_urgent) nullable
+- `due_date` date nullable
 - `recommended_action` text nullable
 - `expected_outcome` text nullable
 - `success_criteria` text nullable
@@ -158,11 +159,14 @@ B-02 `work_items` に以下を追加する。
 
 期限の扱い:
 - `due_bucket` はB-24の時間軸分類をそのまま保持する。
-- B-02既存の `due_at` は具体的な期限日時の保存先として引き続き使用する。
+- `due_date` は時刻を含まないカレンダー上の期限日を保持する。
+- B-02既存の `due_at` は、時刻まで明示された期限日時だけを保存する。
+- B-24のAI出力は `due_date` までしか返さないため、AI採用時に任意の時刻を補って `due_at` へ変換しない。
 - AI提案由来タスクでは `due_bucket` を必須とする。
-- `due_bucket = today / within_week` の場合、B-24に従って受領した `due_date` を `due_at` へ変換して保持する。
-- `due_bucket = not_urgent` では `due_at` がnullでもよい。
-- 手動作成 / imported taskでは `due_bucket` をnullableのまま許容し、既存タスクとの互換性を維持する。
+- `due_bucket = today / within_week` の場合、B-24に従って受領した `due_date` を `work_items.due_date` へそのまま保存する。
+- `due_bucket = not_urgent` では `due_date` / `due_at` ともnullでもよい。
+- 後から人間が具体時刻を指定した場合のみ `due_at` を設定してよい。
+- 手動作成 / imported taskでは `due_bucket` と `due_date` をnullableのまま許容し、既存タスクとの互換性を維持する。
 
 関連人物を正規化して保持するため `work_item_related_people` を追加する。
 
@@ -242,11 +246,17 @@ Unique候補:
 
 ---
 
-## 10. Referential Validation
+## 10. AI Import Identity / Referential Validation
 
-B-24に従い、AI取込時はJSON Schema validationに加えて根拠参照の実在確認を行う。
+B-24に従い、AI取込時はJSON Schema validationに加えて内部IDと根拠参照を検証する。
 
-最低条件:
+内部ID最低条件:
+- `decision_pack_id` はUUID形式で、取込対象Decision Packとして実在する。
+- `assignee_person_id` / `related_person_ids` / `delegate_to_person_id` はUUID形式で、対応する `people` レコードが実在する。
+- 対象Decision Packと全人物レコードは取込コンテキストと同じ `organization_id` に属する。
+- 解決不能または別organizationの内部IDを含むAI結果は保存しない。
+
+Evidence Ref最低条件:
 - `source_refs` が対象Decision Pack内のEvidence Refと一致する、または
 - `source_system = comes` の場合は対応するCOMESレコードが実在する。
 
@@ -280,7 +290,7 @@ B-24に従い、AI取込時はJSON Schema validationに加えて根拠参照の�
 
 競合時は以下を優先する。
 
-1. B-32 v1.2
+1. B-32 v1.3
 2. B-24 / B-23 / B-10 / B-26 / B-30の各責務専用Decision
 3. B-02の旧記述
 
@@ -292,8 +302,10 @@ B-24に従い、AI取込時はJSON Schema validationに加えて根拠参照の�
 - 1on1構造化情報のAI由来・人間確認を追跡できる
 - AI分析結果を履歴保存できる
 - AI Proposalの `pending / accepted / held / rejected` を区別できる
-- AI提案から `due_bucket / due_at / related people` を含む必要情報をタスクへ引き継げる
+- AI提案から `due_bucket / due_date / related people` を含む必要情報をタスクへ引き継げる
+- AI由来の日付期限へ任意の時刻を付けて `due_at` に変換しない
 - AI提案からタスクへ必要な関係者を内部 `person_id` で保持できる
+- AI出力の内部IDがUUID形式・実在・同一organizationであることを検証できる
 - Decision Pack補正履歴を監査できる
 - Schedule Eventを保存できる
 - AI根拠参照の実在検証をDB境界で行える

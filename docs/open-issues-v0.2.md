@@ -1,8 +1,8 @@
 # OTOMO COMES 未決定事項・Blocking判定 v0.2
 
-Status: Accepted
+Status: Accepted v1.1
 
-本書は `docs/otomo-comes-spec-v0.2.md` と最新Accepted Decision群を前提とする。
+本書は `docs/otomo-comes-spec-v0.2.md`、`docs/acceptance-tests-v0.2.md`、`docs/acceptance-tests-final-audit-addendum-v0.1.md` と最新Accepted Decision群を前提とする。
 
 ## 判定区分
 
@@ -64,7 +64,7 @@ B-03の通信契約はAccepted済み。
 
 ## 解決済み主要Decision
 
-以下は旧 `open-issues-v0.1.md` では未決定扱いだったが、現在はAccepted済み。
+以下はAccepted済みで、設計Blockingとして扱わない。
 
 - B-01 技術スタック
 - B-02 DB基礎スキーマ
@@ -89,6 +89,23 @@ B-03の通信契約はAccepted済み。
 - B-25 AI責任分界
 - B-26〜B-31 HOME / UI整合
 - B-32 DBスキーマ整合拡張 v1.3
+- B-33 Task期限バケット・ローリング7日 v1.1
+- B-34 HOME Task保留
+- B-35 HOME完了操作の種別別意味
+- B-36 Management Action Receipt v1.4
+- B-37 Management Action再掲抑制 v1.2
+- B-38 HOME / AI Proposal表示境界
+- B-39 HOME保留の全カード共通化 v1.1
+- B-40 HOME単一カード表示 v1.1
+- B-41 HOME操作状態DB保存拡張 v1.5
+- B-42 HOMEドメイン完了 / Backing Task同期
+- B-43 Manual / Imported Task期限Fallback
+- B-44 HOME期限ソートnullポリシー
+- B-45 HOME優先度ソート未設定ポリシー
+- B-46 HOME「タスクを見る」表示条件
+- B-47 AI Action担当者契約
+
+最終監査で追加されたB-33〜B-47は `docs/acceptance-tests-final-audit-addendum-v0.1.md` のBLOCKINGテスト対象とする。
 
 ---
 
@@ -116,5 +133,9 @@ Core / UI / AI契約の実装は開始可能。
 
 - CRM Adapter → B-04完了必須
 - Meet / Drive取込Adapter → B-09完了必須
+
+**現時点で、人間判断が必要な未解決の設計Blockingは存在しない。**
+
+B-04 / B-09は設計未決ではなく、実環境・実データを見ないと確定できないためOPENとして残す。
 
 B-04 / B-09以外を「未決定」を理由に新規設計へ広げない。

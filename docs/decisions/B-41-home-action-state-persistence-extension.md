@@ -1,6 +1,6 @@
 # B-41 HOME操作状態のDB保存拡張
 
-Status: Accepted v1.3
+Status: Accepted v1.4
 Decision ID: B-41
 
 ## 1. 目的
@@ -13,13 +13,14 @@ B-33〜B-40で確定したHOMEの期限表示・保留・完了・再掲抑制�
 
 ## 2. HOME日次保留
 
-B-39の全カード共通 `保留` を保存するため、`home_item_deferrals` を追加する。
+B-39 v1.1の全カード共通 `保留` を保存するため、`home_item_deferrals` を追加する。
 
 ### home_item_deferrals
 
 - `id` uuid PK
 - `organization_id` uuid FK
 - `manager_person_id` uuid FK -> people.id
+- `subject_person_id` uuid nullable FK -> people.id
 - `home_card_type` enum(self_action, delegation, praise, bottleneck)
 - `source_type` text
 - `source_system` text
@@ -28,14 +29,16 @@ B-39の全カード共通 `保留` を保存するため、`home_item_deferrals`
 - `created_by_user_id` uuid FK -> profiles.user_id
 - `created_at` timestamptz
 
-Unique:
+Unique候補:
 
 ```text
-(organization_id, manager_person_id, home_card_type, source_type, source_system, source_id, defer_date)
+(organization_id, manager_person_id, home_card_type, subject_person_id, source_type, source_system, source_id, defer_date)
 ```
 
 原則:
 - 保留は当日HOME表示だけに効く。
+- 人物対象が明確な候補では `subject_person_id` を保持する。
+- 同じ根拠でも別人物の候補は独立して保留できる。
 - 元ドメインstatus / due_date / due_at / due_bucket / Evidence Refは変更しない。
 - `work_items.status = waiting` で代用しない。
 - B-34の `home_task_deferrals` は論理的にB-39/B-41の `home_item_deferrals` へ一般化されたものとし、別テーブルを二重実装しない。
@@ -163,8 +166,8 @@ Task単体完了から元ドメイン成果へは自動昇格しない。
 
 競合時:
 
-1. B-41 v1.3
-2. B-45 / B-44 / B-43 / B-42 / B-40 v1.1 / B-39 / B-37 v1.2 / B-36 v1.4 / B-35 / B-34 / B-33 v1.1
+1. B-41 v1.4
+2. B-45 / B-44 / B-43 / B-42 / B-40 v1.1 / B-39 v1.1 / B-37 v1.2 / B-36 v1.4 / B-35 / B-34 / B-33 v1.1
 3. B-32 v1.3
 4. B-02
 
@@ -174,6 +177,7 @@ Task単体完了から元ドメイン成果へは自動昇格しない。
 
 - HOME保留を4カード共通で永続化できる
 - HOME保留とTask `waiting` を分離できる
+- 同じ根拠でも異なる人物候補を独立して保留できる
 - 実施済み管理行動を追記履歴として保存できる
 - 人物対象を `subject_person_id` で区別できる
 - B-36 v1.4のcanonical evidence fingerprintをDB上で保持できる

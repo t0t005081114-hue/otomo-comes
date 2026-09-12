@@ -1,6 +1,6 @@
 # OTOMO COMES 最終監査 受け入れテスト追加 v0.1
 
-Status: Accepted v1.1
+Status: Accepted v1.2
 
 本書は `docs/acceptance-tests-v0.2.md` の追加BLOCKINGテストである。
 
@@ -72,6 +72,7 @@ B-33以降の最終監査で確定した仕様を対象とし、v0.2の既存テ
 - `home_item_deferrals` で当日状態を保持できる
 - 人物対象が明確な候補では `subject_person_id` を保持する
 - 同じ根拠でも異なる人物候補を独立して保留できる
+- `subject_person_id = null` でもunique制約で重複deferを防止できる
 
 ---
 
@@ -236,10 +237,11 @@ priority未設定候補へrisk / KPI / 人物属性等から推測priorityを付
 
 **BLOCKING**
 
-B-41 v1.4を満たす。
+B-41 v1.5を満たす。
 
 - `home_item_deferrals`
 - deferralの `subject_person_id` nullable
+- `UNIQUE NULLS NOT DISTINCT` によるnull-safe重複防止
 - `management_action_receipts`
 - receiptの `subject_person_id` nullable
 - `evidence_refs`
@@ -260,6 +262,20 @@ B-34のTask専用deferralテーブルを別物として二重実装しない。
 - Task無し候補でも `完了 / 保留` が成立する
 - item / card押下でCentered Modal等の詳細確認へ進める
 - HOMEへ新しい共通操作を増やさない
+
+---
+
+## FA-16 AI Action担当者
+
+**BLOCKING**
+
+B-47準拠。
+
+- 全actionの `assignee_person_id` が対象Decision Packの `manager_id` と一致する
+- delegate先は `delegate_to_person_id` で表現する
+- praise / follow_up / one_on_one対象は `related_person_ids` で表現する
+- 不一致AI結果はimport failure
+- COMESがassigneeをサイレント修正しない
 
 ---
 

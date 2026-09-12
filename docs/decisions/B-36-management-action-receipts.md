@@ -1,6 +1,6 @@
 # B-36 Management Action Receipt 契約
 
-Status: Accepted v1.3
+Status: Accepted v1.4
 Decision ID: B-36
 
 ## 結論
@@ -25,6 +25,7 @@ HOME上段4カードの完了操作:
 - `id` uuid PK
 - `organization_id` uuid FK
 - `manager_person_id` uuid FK -> people.id
+- `subject_person_id` uuid nullable FK -> people.id
 - `action_kind` enum(task_completed, delegation_handled, praise_delivered, bottleneck_resolved)
 - `source_type` text
 - `source_system` text
@@ -37,6 +38,8 @@ HOME上段4カードの完了操作:
 - `note` text nullable
 - `request_id` text nullable
 - `created_at` timestamptz
+
+`subject_person_id` は、称賛・委譲・人物フォロー等で対象人物が一意に存在する場合に設定する。同じEvidence Ref集合が複数人物に関係する場合の誤抑制を防ぐために使う。
 
 `source_type / source_system / source_id` は主参照先を表し、B-12 / B-24のEvidence Refと同じ意味を使う。
 
@@ -67,6 +70,22 @@ source_type|source_system|source_id
 
 Evidence Refが0件の候補ではfingerprintを生成せず、その候補を再掲抑制の自動対象にしない。B-24 AI actionは `source_refs` 1件以上が必須なので通常は0件にならない。
 
+## 再掲比較キー
+
+人物対象がある場合:
+
+```text
+action_kind + subject_person_id + evidence_fingerprint
+```
+
+人物対象が無い場合:
+
+```text
+action_kind + source_type + source_system + source_id + evidence_fingerprint
+```
+
+これにより、同じ根拠集合から複数人物への異なるPraise候補が生成された場合に、一人への実施Receiptが他の人物候補まで抑制しない。
+
 ## 原則
 
 - Receiptは追記型とし、実施履歴を後から失わない。
@@ -91,6 +110,7 @@ Evidence Refが0件の候補ではfingerprintを生成せず、その候補を�
 委譲候補そのものを「業務完了」とは扱わない。
 
 - 実施済み事実を `delegation_handled` Receiptとして記録する
+- 対象人物が確定している場合は `subject_person_id` を保持する
 - `delegation_candidates` の既存classificationや根拠は保持する
 - 候補自体の状態変更は、既存status契約と矛盾しない範囲でのみ行う
 
@@ -99,6 +119,7 @@ Evidence Refが0件の候補ではfingerprintを生成せず、その候補を�
 Praiseは人物状態ではないため、人物レコードやKPIを変更しない。
 
 - `praise_delivered` Receiptを記録する
+- 対象人物を `subject_person_id` として保持する
 - 何を根拠に褒めたかを `evidence_refs` で追跡できる
 
 ### 詰まりを取る
@@ -119,6 +140,7 @@ Praiseは人物状態ではないため、人物レコードやKPIを変更し�
 
 - organization
 - action_kind
+- subject_person_id nullable
 - source_type
 - source_system
 - source_id
@@ -135,9 +157,7 @@ Receiptは「実際にマネジメント行動を実施した」場合だけを�
 
 ## B-37との関係
 
-再掲抑制では、単一の主sourceだけではなく `action_kind + evidence_fingerprint` を正本比較キーとする。
-
-これにより、複数Evidence Refを持つ候補でも、同じ根拠集合のまま繰り返し再掲することを防げる。
+再掲抑制では、B-37 v1.2に従い人物対象の有無を含めた比較キーを使う。
 
 新しいEvidence Refが追加された場合はfingerprintが変わり、新しい候補として扱える。
 
@@ -151,14 +171,17 @@ Receiptは「実際にマネジメント行動を実施した」場合だけを�
 - 複数根拠の候補で任意の1件だけを選び再掲抑制キーにする
 - labelをfingerprintへ含める
 - JSONオブジェクトのキー順やEvidence Ref配列順をそのままhashして実装差を生む
+- 同じEvidence Refだからという理由だけで異なる人物の候補を相互抑制する
 
 ## Acceptance
 
 - HOMEの完了操作をカード種別別に監査できる
 - task / delegation / praise / bottleneckの実施履歴を共通形式で追跡できる
+- 人物対象がある行動で `subject_person_id` を保持できる
 - 主参照先とEvidence Ref集合を両方保持できる
 - 複数根拠でも同一手順で `evidence_fingerprint` を生成できる
 - Evidence Ref配列順やlabel変更でfingerprintが変わらない
+- 同じ根拠集合でも異なる人物の行動を誤って抑制しない
 - 元データの意味を壊さない
 - Praise実施で人物状態を書き換えない
 - Bottleneckは実解消時だけresolvedになる

@@ -243,3 +243,102 @@ Status: Harness v0.1（運用ファイル / 製品仕様の正本ではない）
 - 再発防止 / 次にやること: 上記2点を該当Phase開始時のscope確認（`docs/PHASE_WORKFLOW.md`）で
   必ずチェックする。
 - 人間判断が必要か: No
+
+### 2026-09-13 Codex再レビュー2回目FAIL: `npm ci` clean install失敗の実際の原因を特定・解消（Remediation 2）
+
+- 種別: 失敗 → 解消
+- Phase: phase-00
+- 関連: B-01
+- 何が起きたか: Codex再レビュー2回目が「clean checkout / Node 24.13.0 / npm 11.6.2でも
+  `npm ci` が失敗する」でFAIL判定。Remediation 1（上記2026-09-13付エントリ）は手元環境で
+  再現しなかったため `engines` / `.node-version` / CIのnpmバージョン固定のみで対応したが、
+  根本原因には到達していなかった。
+- 原因（事実。`npm explain` / `npm ls --all` / `package-lock.json` の実データで確認）:
+  - `@napi-rs/wasm-runtime@1.2.4`（`package-lock.json` に記録された唯一のバージョン）は
+    `peerDependencies` として `@emnapi/core: "^1.7.1 || ^2.0.0-alpha.4"` と
+    `@emnapi/runtime` を要求しているが、`peerDependenciesMeta` で optional 指定されて
+    いない（`node_modules/@napi-rs/wasm-runtime` のpackage.json相当をlockfileから確認）。
+  - `package-lock.json` 全体を検索した結果、top-level（`node_modules/@emnapi/core`
+    `node_modules/@emnapi/runtime`）にも、`@napi-rs/wasm-runtime` 自身のnode_modules配下
+    にも、この peer 要求を満たすエントリが**一つも存在しなかった**（事実）。
+  - 唯一存在する `@emnapi/core` / `@emnapi/runtime`（1.10.0）は
+    `node_modules/@unrs/resolver-binding-wasm32-wasi/node_modules/` 配下のprivateな
+    nested依存であり、`@unrs/resolver-binding-wasm32-wasi` 自身の `dependencies`
+    （非bundled・非peer）としての解決結果にすぎず、`@napi-rs/wasm-runtime` のpeer解決
+    スコープ（兄弟階層・祖先階層）からは不可視（事実。npmのnode_modules解決規則上、
+    兄弟パッケージの内部nested依存は見えない）。
+  - `@napi-rs/wasm-runtime` を要求する2系統（`@tailwindcss/oxide-wasm32-wasi` /
+    `@unrs/resolver-binding-wasm32-wasi`）はいずれも `cpu: ["wasm32"]` のoptional
+    dependencyで、実機（x64等）では本来インストール対象外だが、`@napi-rs/wasm-runtime`
+    自体は（cpu制約なしの通常依存として）top-levelにインストールされてしまい、
+    `npm ls` 上は `extraneous`（要求元が実質skipされているためidealTreeには不要と
+    判定される）と表示される、というnpmのoptionalDependency解決の既知の挙動が
+    併発していた（事実。手元のクリーン `npm ci` でも同じ`extraneous`状態を確認済み）。
+  - すなわち「lockfileに@emnapi/core / @emnapi/runtimeの解決先が構造的に存在しない」こと
+    自体がプラットフォーム非依存の事実であり、手元（Windows / npm 11.6.2）で
+    たまたま `npm ci` が exit 0 になっていたのは、npmが未解決peer dependencyを
+    デフォルトでは警告に留め、致命的エラーにしていなかったため（推測。Codexレビュー
+    実行環境のnpm minor versionやプラットフォームの違いにより「Missing: X from lock
+    file」という`npm ci`特有の厳格な整合性エラーに発展したかどうかは、実行環境へ
+    直接アクセスできないため未確認）。
+- 結果: `package.json` の `devDependencies` に `@emnapi/core@^1.11.3` /
+  `@emnapi/runtime@^1.11.3` を明示追加し（`npm install --save-dev` で追加。
+  `package-lock.json` の手編集はしていない）、`@napi-rs/wasm-runtime` のpeer要求
+  （`^1.7.1 || ^2.0.0-alpha.4`）と `@tailwindcss/oxide-wasm32-wasi` 自身の
+  依存要求（`^1.11.1`）の両方を満たすtop-levelエントリをlockfileへ確定させた。
+  `node_modules` / `.next` を完全削除したクリーン状態から `npm ci` → `npm ls
+  @napi-rs/wasm-runtime @emnapi/core @emnapi/runtime --all` → `lint` →
+  `typecheck` → `test` → `test:integration` → `build` を実行し、全てPASS
+  （exit 0）することを確認した。`npm ls --all` で `@emnapi/core` /
+  `@emnapi/runtime` 関連の `UNMET` / `invalid` は0件であることを確認した。
+- 未解消の副次事項（今回は対応しない）: `@napi-rs/wasm-runtime` と
+  `@img/sharp-wasm32` は、今回の修正後も `npm ls` 上で `extraneous` のまま残る
+  （事実。今回の修正前から同じ状態だったことを修正前のクリーン`npm ci`で確認済み）。
+  これは要求元（cpu:wasm32のoptional fallbackパッケージ群）が実機ではskipされる
+  一方、npmのoptionalDependency解決が該当パッケージ自体は取得してしまうという
+  npm/napi-rsエコシステム側の既知の挙動であり、`npm ci` / `npm ls` の終了コードには
+  影響しない（事実）。`overrides` 等で強制的に除外することも検討したが、
+  これらはwasm32環境（一部のCI/コンテナ環境）で実際に使われる可能性がある正規の
+  optional fallbackパッケージであり、Phase 0のscopeを超えてPhase 0に無関係な
+  package群の挙動を変更するリスクの方が大きいと判断し、見送った（判断）。
+- 再発防止 / 次にやること: peerDependenciesを要求するoptional wasm系パッケージが
+  今後 `package-lock.json` に追加・更新された場合、`npm ls <pkg> --all` で
+  `UNMET PEER DEPENDENCY` の有無をPhase完了前に確認する。npmバージョンや
+  プラットフォームによって挙動が変わりうる（未確認・推測を含む）ため、
+  「手元で `npm ci` が通る」ことだけでCodexレビューのPASSを予測しない。
+- 人間判断が必要か: No
+
+### 2026-09-13 test:integration の passWithNoTests をintegration project限定へ変更（Remediation 2）
+
+- 種別: 失敗 → 解消
+- Phase: phase-00
+- 関連: DEVELOPMENT_STANDARDS §6
+- 何が起きたか: Codex再レビュー2回目のAdvisoryで、`vitest.config.ts` の
+  `passWithNoTests: true` がroot（グローバル）に設定されており、`--project unit` /
+  `--project integration` のどちらで実行してもテスト0件でPASS可能な状態になっている
+  ことを指摘された。Phase 0時点で `tests/unit/example.test.ts` が1件存在するため、
+  unit側が0件PASSを許容する必要はない（事実。上記2026-09-13付
+  「test:integration の passWithNoTests は実装TODOとして明示」エントリで
+  「今回は解除しない」と判断した内容を、Codex指摘を受けて再検討した）。
+- 対応で分かったこと（事実。実測で確認）: `vitest.config.ts` の
+  `test.projects[].test.passWithNoTests` に個別指定しても、`vitest run --project
+  integration` 実行時の「No test files found」判定には反映されず、`exit code 1`の
+  ままだった（Vitest 5.0.0のprojects機能では、この「テスト0件」判定がroot解決後の
+  グローバル設定を見るため。未確認: Vitestの内部実装上の理由までは検証していない）。
+  そのため `vitest.config.ts` からは `passWithNoTests` を完全に削除し、
+  `package.json` の `test:integration` scriptにのみ `--passWithNoTests` CLIフラグを
+  付与する方式に変更した。`npm run test`（unit）は素の `vitest run --project unit`
+  のままのため、unit側のテストが0件になれば `exit code 1` でFAILする
+  （実測: `tests/unit/example.test.ts` を一時退避し `npm run test` が
+  `exit code 1` になることを確認後、ファイルを復元し再度PASSすることを確認した）。
+- 結果: `vitest.config.ts` からroot/project双方の `passWithNoTests` 指定を削除し、
+  `package.json` の `scripts.test:integration` を
+  `"vitest run --project integration --passWithNoTests"` に変更した。
+  `npm run test` は0件時FAIL、`npm run test:integration` は0件時PASSという
+  Codex Advisory通りの区別を実現した。
+- 再発防止 / 次にやること: 最初のDB Phase（業務スキーマ導入）で
+  `test:integration` に実テストが追加された後は、`--passWithNoTests` フラグ自体を
+  scriptから削除し、integration testも0件ならFAILする状態へ揃える
+  （このTODOは上記「test:integration の passWithNoTests は実装TODOとして明示」の
+  条件と同一で、削除はしない）。
+- 人間判断が必要か: No

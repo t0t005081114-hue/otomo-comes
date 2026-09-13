@@ -16,6 +16,7 @@ dist/
 build/
 coverage/
 *.tsbuildinfo
+next-env.d.ts
 
 # Test artifacts
 playwright-report/

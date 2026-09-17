@@ -1,169 +1,88 @@
 # AGENTS.md
 
-OTOMO COMES リポジトリで **Codex** が守る入口ルール。
+OTOMO COMESでCodexが独立レビューを行う際のProduct入口。
+本ファイルは製品仕様の正本ではない。
 
-Codexの役割は原則として **独立レビュー** であり、実装主担当ではない。
-本ファイルはHarnessの入口であり、**製品仕様の正本ではない**。
-本ファイルと正本が矛盾する場合は正本を優先し、本ファイルの修正を人間へ提案する。
+## 1. Review foundation
 
-| 主体 | 責務 |
-|---|---|
-| Claude Code | 正本に基づく実装、self-review、検証実行、記録 |
-| Codex | 独立レビュー（仕様逸脱・境界違反・検証漏れの指摘） |
-| 人間 | 仕様判断、Decision承認、B-04 / B-09解決、PASS判定、リリース |
+独立レビューの共通原則、Review Assurance Level (L0 / L1 / L2)、Risk Classification、Review Scope、Clean-room Verification、Verification EvidenceはOTOMO COREを正本とする。
 
-Codexは自分の提案を仕様として確定しない。仕様判断は必ず人間へ返す。
+標準ローカル構成では以下を参照する。
 
----
+- `..\otomo-core\harness\DEVELOPMENT_STANDARDS.md`
+- `..\otomo-core\harness\PHASE_WORKFLOW.md`
+- `..\otomo-core\architecture\RESPONSIBILITY_BOUNDARIES.md`
 
-## 1. Role（レビュー観点）
+Codexは実装担当のReview Handoffを出発点として使えるが、Scopeの上限として信用しない。必要ならScopeを広げ、Forced L2 driverを発見した場合はL2へescalateする。
 
-Codexはレビュー時に少なくとも次を確認する。
+## 2. COMES Source of Truth
 
-| # | 観点 | 見るもの |
-|---|---|---|
-| 1 | 仕様逸脱 | 正本に無い振る舞いを実装していないか |
-| 2 | Accepted Decisionとの矛盾 | 後発Decisionを旧記述で上書きしていないか |
-| 3 | Acceptance未達 | 対象 `AT-xx` / `FA-xx` を満たすか、未達が明示されているか |
-| 4 | B-04 / B-09 Gate違反 | §5参照。推測mapping / 推測識別が無いか |
-| 5 | architecture boundary違反 | `src/core/**` のvendor混入、Adapter外の外部連携、CRM書き込み |
-| 6 | security / sensitive data | token・1on1原文・observation本文のログ / 保存、secret混入、権限判定 |
-| 7 | DB整合性 | migrationの原子性、適用済みmigrationの改変、型（`date` / `timestamptz`）、UUID参照整合、organization境界 |
-| 8 | AI boundary | 検証ゲート未通過の保存、pending / held / rejected Proposalの実行昇格、感情・性格・スコア推測 |
-| 9 | edge case | null / 欠損 / 境界値 / 並び順（B-43〜B-46）の扱い |
-| 10 | test不足 | business ruleのunit test、DB境界のintegration test、Acceptance IDとの対応 |
-| 11 | scope外実装 | Phase scope外の変更混入 |
-| 12 | 過剰設計 | 正本が要求していない抽象化・将来拡張 |
+レビュー判断では次を実物確認する。
 
-Codex自身が新仕様を決定しない。観点1〜12はすべて「正本と照らして指摘する」行為であり、
-正本に書かれていない答えを自分で埋める行為ではない。
-
----
-
-## 2. Source of Truth
-
-レビュー判断は次の正本のみを根拠にする。記憶・要約・実装コードを根拠にしない。
-
-| 目的 | 正本 |
-|---|---|
-| 製品定義 / MVP範囲 | `docs/otomo-comes-spec-v0.2.md` |
-| 受け入れ判定（基本） | `docs/acceptance-tests-v0.2.md` |
-| 受け入れ判定（最終監査追加） | `docs/acceptance-tests-final-audit-addendum-v0.1.md` |
-| 未決定 / Blocking | `docs/open-issues-v0.2.md` |
-| 監査結果 / 実装Gate | `docs/final-audit-report-v0.1.md` |
-| 個別責務の確定事項 | `docs/decisions/B-*.md` |
-
-### 競合時の優先順位（絶対）
-
-1. 後発のAccepted Decision
+1. 後発のAccepted Decision (`docs/decisions/B-*.md`)
 2. 責務専用Decision
 3. `docs/otomo-comes-spec-v0.2.md`
-4. 旧 `v0.1` 文書 / Draft
+4. `docs/acceptance-tests-v0.2.md`
+5. `docs/acceptance-tests-final-audit-addendum-v0.1.md`
+6. `docs/open-issues-v0.2.md`
+7. `docs/final-audit-report-v0.1.md`
+8. `harness/PRODUCT_RULES.md`
+9. `harness/VALIDATION.md`
+10. 対象Phase記録と関連Failure
 
-HOME / Task周辺でさらに競合する場合はB-41 §8の順序に従う。
-この規則でも決まらない矛盾は、Codexが解決せず **Human decision required** として報告する。
+HOME / Task周辺の競合はB-41 §8に従う。
+決められない仕様論点はCodexが補完せずHuman Decision Requiredとして返す。
 
----
+## 3. COMES-specific review focus
 
-## 3. Harness参照（正本ではない）
+Review Scope内で該当する場合、特に次を監査する。
 
-必要に応じて読む。指摘の根拠としては正本より下位に置く。
+- B-04 / B-09 Gate違反がないか
+- `src/core/**` にvendor dependencyが侵入していないか
+- 外部連携がAdapter境界を越えていないか
+- CRMがGET onlyか
+- organization境界 / UUID参照整合が守られているか
+- 1on1原文、Observation本文、token、secret等の保存・ログ境界が守られているか
+- AI importの4段Validationが省略されていないか
+- pending / held / rejected Proposalが実行対象へ昇格していないか
+- 感情・性格・モチベーション・能力スコアの推測がないか
+- Acceptance IDとtest/evidenceが対応しているか
+- scope外実装 / 過剰設計がないか
 
-- `CLAUDE.md` … Claude Code側の実装ルール（Codexはこれを守っているかを検証する側）
-- `docs/PHASE_WORKFLOW.md` … Phaseの回し方、self-reviewチェックリスト、Codexへ渡す材料
-- `docs/DEVELOPMENT_STANDARDS.md` … 実装標準（層構成 / TypeScript / DB / Security / AI Boundary / Testing）
-- `docs/DECISIONS_AND_FAILURES.md` … 実装中に分かったこと・失敗の記録
-- `docs/phases/` … 各Phaseのscope / acceptance / validation記録
+詳細なProduct invariantは `harness/PRODUCT_RULES.md` を参照する。
 
-`.claude/rules/` はClaude Code向けの実行補助（対象ファイルを触るときだけ読み込まれる）であり、
-**Codexの正本ではない**。Codexが実装ルールを確認する場合は
-`docs/DEVELOPMENT_STANDARDS.md` とAccepted Decisionを参照する。
+## 4. Finding classification
 
----
+Findingは少なくとも以下を区別する。
 
-## 4. Review behavior
+- Implementation defect: 既存正本を変えずに修正できる実装ミス
+- Specification / Product decision: 新Decisionまたは仕様変更が必要。Human Decision Required
 
-指摘は必ず次の2種類に分類する。混ぜない。
-
-### A. Implementation defect
-
-- 既存の正本に対する実装ミス・漏れ・違反
-- 正本を変えずに修正可能
-- 指摘には「どの正本のどこに反するか」を必ず添える
-
-### B. Specification / product decision
-
-- Accepted Decisionでは決められない
-- 判断するには仕様変更・新Decisionが必要
-- **Human decision required** として報告する
-
-Bに該当するものをCodexが確定しない。実装案を書いてもよいが、それは提案であって仕様ではない。
-Bを報告するときは「何が / どの文書で / どう決まっていないか」「選択肢」「推奨」をセットで出す。
-
-各指摘には severity を付ける。
-
-- **Blocking** … 正本違反・Acceptance未達・security / データ整合の危険。PASSにできない。
-- **Advisory** … 改善提案。PASS可否に影響しない。
-
----
+Blocking / Advisoryの定義とPASS / FAILはOTOMO COREに従う。
 
 ## 5. B-04 / B-09 Gate
 
-以下は `docs/open-issues-v0.2.md` で **BLOCKING-NOW / OPEN** のまま。
-実装がこれらに依存していたら、CodexはBlockingとして指摘する。
+B-04 / B-09がOPENの間は、以下を推測で確定しない。
 
-- **B-04**（CRM → Daily Work Log実データmapping）未解決のまま、CRM Adapterの項目mapping / 集計条件を実装している
-- **B-09**（Meet / Drive実ファイル識別）未解決のまま、ファイル名規則・人物特定・複数ファイル識別を実装している
-- 欠損metricを0で補完している / 取得不能項目を推測で埋めている
+- CRM → Daily Work Logの実データmapping / 集計条件
+- Meet / Drive実ファイル識別、人物特定、複数ファイル識別
+- 欠損metricの0補完や取得不能項目の推測補完
 
-B-03（通信契約）、B-08（認証方式）、B-10（1on1構造化方式）はAccepted済みなので、
-mapping / 識別に依存しない部分の実装はGate違反ではない。
-
-CodexがB-04 / B-09の内容を推測して「正解」を示すことは禁止する（§7）。
-
----
+該当実装を発見した場合はBlocking候補として扱う。
 
 ## 6. Review result
 
-Phaseレビュー結果は最低限、次の項目を含める。
+Review resultはOTOMO COREがLevelごとに要求するEvidenceを満たすこと。
+加えてCOMESでは最低限、対象Decision / Acceptance coverage、Human Decision Required、B-04/B-09 Gate該当有無を明示する。
 
-```
-Verdict: PASS / FAIL
-Blocking findings: （0件なら「なし」）
-Advisory findings:
-Acceptance coverage: 対象 AT-xx / FA-xx と カバー / 未カバー / 未達
-Human decision required: （B分類の論点）
-Scope creep: Phase scope外の変更
-Security concerns: token / 原文 / secret / 権限 / organization境界
-```
+L1ではAcceptance-critical path / risk-critical diff / responsibility boundaryを中心にTargeted Reviewする。
+L2では対象logical changeの影響範囲全体をFull Independent Reviewする。
+L0は独立レビュー免除であり、Codexレビュー結果を作る必要はない。
 
-**PASS条件**: Blocking findings が0件 かつ 対象Acceptanceを満たしていること。
-どちらか一方でも欠けていればFAIL。
+## 7. 禁止
 
-判断材料が足りない場合はPASSにしない。何が足りないかを書いてFAILまたは保留とする。
-
-レビューに必要な材料（`docs/PHASE_WORKFLOW.md` §5）:
-Phase番号とscope / out of scope、`git diff`、参照Decision ID / Acceptance ID、
-validation結果（lint / typecheck / test / build）、self-reviewで未解決な点。
-
----
-
-## 7. 禁止事項
-
-- 新仕様・新概念・新テーブル・新画面を勝手に追加する。
-- B-04 / B-09の未確定事項を推測で埋める・「こうあるべき」と確定する。
-- `docs/decisions/**`、`docs/otomo-comes-spec-v0.2.md`、`docs/acceptance-tests-*.md`、`docs/final-audit-report-v0.1.md` を書き換える。
-- Claude Codeの実装をそのまま正しいと仮定して、正本を確認せずレビューする。
-- 自分の提案を仕様として扱う / 人間承認なしに正本へ反映する。
-- review scope外の大規模リファクタを提案する。
-- 人物の感情 / 性格 / モチベーションを推測する、または数値化を提案する。
-
-禁止に触れそうになった時点でレビューを止め、**Human decision required** として人間へ返す。
-
----
-
-## 8. 記録
-
-Codexのレビューで判明した仕様矛盾・再発防止事項は、人間の判断を経て
-`docs/DECISIONS_AND_FAILURES.md` へ追記する（Accepted Decisionの複製はしない）。
-既存記述の削除・全面書き換えはしない。日付見出しで追記する。
+- 未決定仕様を自分で確定しない
+- Accepted Decision / formal spec / Acceptanceをレビュー都合で変更しない
+- 実装を正しいと仮定して正本確認を省略しない
+- review scope外の大規模リファクタを仕様のように要求しない
+- B-04 / B-09を推測で埋めない

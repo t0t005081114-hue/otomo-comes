@@ -1,10 +1,11 @@
 # Phase 00 — development-foundation
 
 Status: blocked (Codex再レビュー待ち。Review 1 FAIL → Remediation 1 → Review 2 FAIL →
-Remediation 2 実施済み。phase-00 tagは未付与)
+Remediation 2 実施済み → Pre-Codex Audit実施済み。phase-00 tagは未付与)
 Date: 2026-09-13
 Remediation date: 2026-09-13
 Remediation 2 date: 2026-09-13
+Pre-Codex Audit date: 2026-09-18（記録の事実誤り3点を訂正。実装・仕様変更なし）
 
 ## レビュー経過の要約（事実を上書きしない）
 
@@ -19,6 +20,11 @@ Remediation 2 date: 2026-09-13
   lockfileのどこにも解決先を持たない）を特定し解消。詳細は
   `docs/DECISIONS_AND_FAILURES.md` 2026-09-13付「Codex再レビュー2回目FAIL: `npm ci`
   clean install失敗の実際の原因を特定・解消（Remediation 2）」参照。
+- Pre-Codex Audit（2026-09-18）: Codex正式Review 3提出前に、記録上の事実誤り3点
+  （passWithNoTestsの記録、extraneous一覧、Review 2のnpm ci再現条件）を実機検証の上
+  訂正。実装（`package.json` / `package-lock.json` / `vitest.config.ts` / CI / `src`）
+  は変更していない。詳細は各該当箇所の「訂正2026-09-18」注記、および下記「Codex独立
+  レビュー2回目」直後の追記を参照。
 
 **重要**: 下記「Codex独立レビュー1回目」「Remediation内容と再検証結果」節は
 Remediation 1時点の記録であり、当時「クリーン状態からの再検証で全てPASSした」と
@@ -90,7 +96,7 @@ Phase 0に直接対応するAcceptance IDは存在しない（業務機能を実
 | `postcss.config.mjs` | Tailwind CSS v4のPostCSSプラグイン設定 |
 | `src/app/layout.tsx` / `page.tsx` / `globals.css` | 動作確認用の最小Next.js App Router画面（業務画面ではない） |
 | `src/{core,application,adapters,schemas,shared}/README.md` | DEVELOPMENT_STANDARDS §1のディレクトリ構成・層責務の明文化（コード未実装） |
-| `vitest.config.ts` | Vitest `unit` / `integration` project分割（DEVELOPMENT_STANDARDS §6）。**\[remediation 2\]** root/project双方にあった `passWithNoTests: true` を削除。0件PASSの許容は `test:integration` scriptの `--passWithNoTests` CLIフラグへ限定し、`npm run test`（unit）は0件ならFAILする状態に変更 |
+| `vitest.config.ts` | Vitest `unit` / `integration` project分割（DEVELOPMENT_STANDARDS §6）。**\[remediation 2\]** `vitest.config.ts` トップレベル（root）1箇所にのみあった `passWithNoTests: true` を削除（git上、この設定が存在した箇所はroot 1箇所のみ。個別project (`test.projects[].test.passWithNoTests`) への指定も対応中に試したが、期待通り機能せずcommitはしていない未commit実験。詳細は`docs/DECISIONS_AND_FAILURES.md`参照）。0件PASSの許容は `test:integration` scriptの `--passWithNoTests` CLIフラグへ限定し、`npm run test`（unit）は0件ならFAILする状態に変更 |
 | `tests/unit/example.test.ts` | pure TypeScriptの動作確認用smoke test |
 | `tests/integration/README.md` / `tests/e2e/README.md` | テスト区分の置き場所を明示（テスト本体は業務スキーマ/画面実装後） |
 | `playwright.config.ts` | Playwright起動可能な最小設定（B-01） |
@@ -155,6 +161,16 @@ Phase 0に直接対応するAcceptance IDは存在しない（業務機能を実
   へ効いており、unit testが0件でもPASSできる状態になっている。
 - Human decision required: None
 
+**追記（2026-09-18 Pre-Codex Audit、既存記録は削除・修正しない）**: 上記「clean checkout /
+Node 24.13.0 / npm 11.6.2 でも `npm ci` が失敗する」という条件について、今回のPre-Codex
+Auditではnpm 11.6.2環境を用意できず再現していない（未確認）。一方、Remediation 2適用前の
+commit `8997759` に対し、本機のnpm 11.19.1で `npm ci` を実行したところ
+`Missing: @emnapi/runtime@1.11.3 from lock file` / `Missing: @emnapi/core@1.11.3 from
+lock file` により exit code 1 で失敗することを実際に再現した（`git worktree add` で
+`8997759` を分離checkoutし `node_modules` なしの状態から検証）。過去記録（Review 2時点で
+npm 11.6.2という条件が報告されていたこと）を誤りと断定するものではなく、後続監査
+（npm 11.19.1）では異なるnpmバージョンで同種の失敗が再現したという事実を追記する。
+
 ## Remediation 2内容と再検証結果
 
 原因調査・対応内容の詳細は `docs/DECISIONS_AND_FAILURES.md` 2026-09-13付
@@ -174,11 +190,16 @@ Phase 0に直接対応するAcceptance IDは存在しない（業務機能を実
    `^1.7.1 || ^2.0.0-alpha.4` と `@tailwindcss/oxide-wasm32-wasi` 自身の要求
    `^1.11.1` の両方を満たすバージョンを選定）、`package-lock.json` を通常の
    npmコマンドで更新した（手編集なし）。
-3. **Vitest Advisory対応**: `vitest.config.ts` からroot/project双方の
-   `passWithNoTests` を削除し、`package.json` の `test:integration` script側にのみ
-   `--passWithNoTests` CLIフラグを付与する方式に変更。`npm run test`（unit）が
-   0件時に `exit code 1` でFAILすることを実測確認した（一時的にテストファイルを
-   退避 → 確認 → 復元）。
+3. **Vitest Advisory対応**: `vitest.config.ts` のトップレベル（root）1箇所にのみ
+   あった `passWithNoTests: true` を削除し、`package.json` の `test:integration`
+   script側にのみ `--passWithNoTests` CLIフラグを付与する方式に変更（**訂正
+   2026-09-18**: 「root/project双方」にあったという従来の記録は不正確。git上
+   `passWithNoTests` が存在したのはroot 1箇所のみで、`test.projects[].test.passWithNoTests`
+   への個別指定は対応中に試した未commitのローカル実験にとどまる。詳細は
+   `docs/DECISIONS_AND_FAILURES.md` 2026-09-13付「test:integration の
+   passWithNoTests をintegration project限定へ変更（Remediation 2）」参照）。
+   `npm run test`（unit）が0件時に `exit code 1` でFAILすることを実測確認した
+   （一時的にテストファイルを退避 → 確認 → 復元）。
 
 ### Validation result（Remediation 2後・完全クリーン状態からの再検証）
 
@@ -187,7 +208,7 @@ Phase 0に直接対応するAcceptance IDは存在しない（業務機能を実
 | コマンド | 結果 | 備考 |
 |---|---|---|
 | `npm ci` | PASS (exit 0) | `added 396 packages` で成功。`Missing: @emnapi/*` エラーなし |
-| `npm ls @napi-rs/wasm-runtime @emnapi/core @emnapi/runtime --all` | 確認済み | `@emnapi/core@1.11.3` / `@emnapi/runtime@1.11.3` がtop-levelで解決され、`@napi-rs/wasm-runtime` からdedupe参照される。UNMET / invalid は0件。`@napi-rs/wasm-runtime` と `@img/sharp-wasm32` は `extraneous` のまま（修正前から同一状態。下記Unresolved issues参照） |
+| `npm ls @napi-rs/wasm-runtime @emnapi/core @emnapi/runtime --all` | 確認済み | `@emnapi/core@1.11.3` / `@emnapi/runtime@1.11.3` がtop-levelで解決され、`@napi-rs/wasm-runtime` からdedupe参照される。UNMET / invalid は0件。`@napi-rs/wasm-runtime` / `@img/sharp-wasm32` / `@tybys/wasm-util` の3件が `extraneous` のまま（修正前から同一状態。**訂正2026-09-18**: 従来の記録では2件のみ記載しており `@tybys/wasm-util` の記載漏れがあった。npm 11.6.2 / 11.19.1の両方の実測で3件を確認。下記Unresolved issues参照） |
 | `npm run lint` | PASS (exit 0) | エラー・警告なし |
 | `npm run typecheck` | PASS (exit 0) | `next typegen && tsc --noEmit`。エラーなし |
 | `npm run test` | PASS (exit 0) | Vitest `unit` project、1 test file / 1 test。0件時は `exit 1` でFAILすることを実測確認済み |
@@ -243,8 +264,12 @@ Phase 0に直接対応するAcceptance IDは存在しない（業務機能を実
   プラットフォーム非依存の構造的欠落）を特定し、root devDependencyとしての明示追加で
   解消した。詳細は `docs/DECISIONS_AND_FAILURES.md` 2026-09-13付「Codex再レビュー2回目
   FAIL: `npm ci` clean install失敗の実際の原因を特定・解消（Remediation 2）」参照。
-- **\[remediation 2・新規・未解消\]** `@napi-rs/wasm-runtime` と `@img/sharp-wasm32` は
-  Remediation 2後も `npm ls --all` 上で `extraneous` のまま残る。cpu:wasm32の
+- **\[remediation 2・新規・未解消\]** `@napi-rs/wasm-runtime` / `@img/sharp-wasm32` /
+  `@tybys/wasm-util` の3件は、Remediation 2後も `npm ls --all` 上で `extraneous`
+  のまま残る（**訂正2026-09-18**: 従来の記録では `@napi-rs/wasm-runtime` と
+  `@img/sharp-wasm32` の2件のみを記載しており、`@tybys/wasm-util` の記載漏れが
+  あった。Pre-Codex Auditでnpm 11.19.1にて実測し3件を確認。npmのminor
+  versionにより表示される extraneous 一覧が変わりうる点に留意する）。cpu:wasm32の
   optional fallbackパッケージ群が実機ではskipされる一方、npmのoptionalDependency
   解決がその依存自体は取得してしまうという既知の挙動であり、`npm ci` / `npm ls` の
   終了コードには影響しない（Phase 0の検証コマンドは全てPASSしている）。`overrides`

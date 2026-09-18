@@ -291,9 +291,14 @@ Status: Harness v0.1（運用ファイル / 製品仕様の正本ではない）
   `typecheck` → `test` → `test:integration` → `build` を実行し、全てPASS
   （exit 0）することを確認した。`npm ls --all` で `@emnapi/core` /
   `@emnapi/runtime` 関連の `UNMET` / `invalid` は0件であることを確認した。
-- 未解消の副次事項（今回は対応しない）: `@napi-rs/wasm-runtime` と
-  `@img/sharp-wasm32` は、今回の修正後も `npm ls` 上で `extraneous` のまま残る
+- 未解消の副次事項（今回は対応しない）: `@napi-rs/wasm-runtime` / `@img/sharp-wasm32` /
+  `@tybys/wasm-util` の3件は、今回の修正後も `npm ls` 上で `extraneous` のまま残る
   （事実。今回の修正前から同じ状態だったことを修正前のクリーン`npm ci`で確認済み）。
+  **訂正2026-09-18（Pre-Codex Audit）**: 本エントリは従来 `@napi-rs/wasm-runtime` と
+  `@img/sharp-wasm32` の2件のみを記載しており、`@tybys/wasm-util` の記載漏れが
+  あった。npm 11.6.2実測では3件（上記3パッケージ）、npm 11.19.1実測でも同じ3件が
+  `extraneous` と表示されることを確認した。npm minor versionにより表示される
+  extraneous一覧が変わりうる点に留意する。
   これは要求元（cpu:wasm32のoptional fallbackパッケージ群）が実機ではskipされる
   一方、npmのoptionalDependency解決が該当パッケージ自体は取得してしまうという
   npm/napi-rsエコシステム側の既知の挙動であり、`npm ci` / `npm ls` の終了コードには
@@ -307,6 +312,16 @@ Status: Harness v0.1（運用ファイル / 製品仕様の正本ではない）
   プラットフォームによって挙動が変わりうる（未確認・推測を含む）ため、
   「手元で `npm ci` が通る」ことだけでCodexレビューのPASSを予測しない。
 - 人間判断が必要か: No
+- **追記（2026-09-18 Pre-Codex Audit、既存記録は削除・修正しない）**: 上記
+  「clean checkout / Node 24.13.0 / npm 11.6.2でも `npm ci` が失敗する」という
+  Review 2の条件について、今回のPre-Codex Auditではnpm 11.6.2環境を用意できず
+  再現していない（未確認）。一方、Remediation 2適用前のcommit `8997759` に対し、
+  本機のnpm 11.19.1で `git worktree add` により分離checkoutし `node_modules` なしの
+  状態から `npm ci` を実行したところ、`Missing: @emnapi/runtime@1.11.3 from lock
+  file` / `Missing: @emnapi/core@1.11.3 from lock file`（EUSAGE、exit code 1）で
+  失敗することを実際に再現した。過去記録（npm 11.6.2という条件）を誤りと断定する
+  ものではなく、後続監査で異なるnpmバージョンにおいて同種の再現条件が確認された
+  という事実として追記する。
 
 ### 2026-09-13 test:integration の passWithNoTests をintegration project限定へ変更（Remediation 2）
 
@@ -321,18 +336,23 @@ Status: Harness v0.1（運用ファイル / 製品仕様の正本ではない）
   「test:integration の passWithNoTests は実装TODOとして明示」エントリで
   「今回は解除しない」と判断した内容を、Codex指摘を受けて再検討した）。
 - 対応で分かったこと（事実。実測で確認）: `vitest.config.ts` の
-  `test.projects[].test.passWithNoTests` に個別指定しても、`vitest run --project
+  `test.projects[].test.passWithNoTests` への個別指定を試したが（この個別指定は
+  ローカルでの試行にとどまりcommitはしていない）、`vitest run --project
   integration` 実行時の「No test files found」判定には反映されず、`exit code 1`の
   ままだった（Vitest 5.0.0のprojects機能では、この「テスト0件」判定がroot解決後の
   グローバル設定を見るため。未確認: Vitestの内部実装上の理由までは検証していない）。
-  そのため `vitest.config.ts` からは `passWithNoTests` を完全に削除し、
-  `package.json` の `test:integration` scriptにのみ `--passWithNoTests` CLIフラグを
-  付与する方式に変更した。`npm run test`（unit）は素の `vitest run --project unit`
+  そのため、root（トップレベル）1箇所にのみあった `passWithNoTests: true` を
+  `vitest.config.ts` から完全に削除し、`package.json` の `test:integration`
+  scriptにのみ `--passWithNoTests` CLIフラグを付与する方式に変更した。
+  `npm run test`（unit）は素の `vitest run --project unit`
   のままのため、unit側のテストが0件になれば `exit code 1` でFAILする
   （実測: `tests/unit/example.test.ts` を一時退避し `npm run test` が
   `exit code 1` になることを確認後、ファイルを復元し再度PASSすることを確認した）。
-- 結果: `vitest.config.ts` からroot/project双方の `passWithNoTests` 指定を削除し、
-  `package.json` の `scripts.test:integration` を
+- 結果: `vitest.config.ts` からroot（トップレベル）1箇所にあった
+  `passWithNoTests` 指定を削除し（**訂正2026-09-18**: 従来「root/project双方」
+  にあったと記載していたが不正確。git上この設定が存在したのはroot 1箇所のみで、
+  project個別指定は未commitのローカル実験だった）、`package.json` の
+  `scripts.test:integration` を
   `"vitest run --project integration --passWithNoTests"` に変更した。
   `npm run test` は0件時FAIL、`npm run test:integration` は0件時PASSという
   Codex Advisory通りの区別を実現した。
